@@ -29,7 +29,7 @@ logname = "./runlogs/AstropixRunlog_" + time.strftime("%Y%m%d-%H%M%S") + ".log"
 
 
 #Init 
-def main(args,row,col,dataF, fpgaCon:bool=True, fpgaDiscon:bool=True):
+def main(args,row,col, fpgaCon:bool=True, fpgaDiscon:bool=True):
 
     # Ensures output directory exists
     if os.path.exists(args.outdir) == False:
@@ -45,10 +45,9 @@ def main(args,row,col,dataF, fpgaCon:bool=True, fpgaDiscon:bool=True):
 
     #Define YAML path variables
     pathdelim=os.path.sep #determine if Mac or Windows separators in path name
-    ymlpath="config"+pathdelim+args.yaml+".yml"
 
     #Initiate asic with pixel mask as defined in yaml 
-    astro.asic_init(yaml=ymlpath)
+    astro.asic_init(yaml=args.yaml)
 
     #Enable single pixel in (col,row)
     #Updates asic by default
@@ -173,9 +172,9 @@ if __name__ == "__main__":
             interrfile.close()
             for r in range(args.rowrange[0],args.rowrange[1]+1,1):
                 if r==args.rowrange[0] and c==args.colrange[0]:#first pixel probed - connect to FPGA but leave open
-                    main(args,r,c, interrpath, fpgaDiscon=False)
+                    main(args, r, c, fpgaDiscon=False)
                 elif r==args.rowrange[1] and c==args.colrange[1]: #final pixel probed - disconnect from FPGA upon completion
-                    main(args,r,c, interrpath, fpgaCon=False)
+                    main(args, r, c, fpgaCon=False)
                 else: #for bulk of pixels, FPGA is already open. Do not reconnect and do not disconnect when completed, leave it open for the next pixel
-                    main(args,r,c, interrpath, fpgaCon=False, fpgaDiscon=False)
+                    main(args, r, c, fpgaCon=False, fpgaDiscon=False)
             
