@@ -247,7 +247,7 @@ class astropix2:
             # dacvals takes precidence over vthreshold
             if vthreshold is not None:
                 # Turns from mV to V with the 1V offset normally present
-                vthreshold = (vthreshold/1000) + 1 
+                vthreshold = (vthreshold/1000) + default_vdac[1][3]
                 if vthreshold > 1.5 or vthreshold < 0:
                     logger.warning("Threshold voltage out of range of sensor!")
                     if vthreshold <= 0: 
