@@ -73,10 +73,10 @@ def main(args):
         #isolate only bitstream without b'...' structure 
         strings = [a[2:-1] for a in f[:,1]]
 
-        for s in strings:
+        for i,s in enumerate(strings):
             #convert hex to binary and decode
             rawdata = list(binascii.unhexlify(s))
-            hits = astro.decode_readout(rawdata, 0, printer = args.printDecode)
+            hits = astro.decode_readout(rawdata, i, printer = args.printDecode)
             #Overwrite hittime - computed during decoding
             hits['hittime']=np.nan
             #Populate csv
