@@ -73,16 +73,17 @@ def main(args):
         #isolate only bitstream without b'...' structure 
         strings = [a[2:-1] for a in f[:,1]]
 
-        for s in strings:
+        for i,s in enumerate(strings):
             #convert hex to binary and decode
             rawdata = list(binascii.unhexlify(s))
-            hits = astro.decode_readout(rawdata, 0, printer = args.printDecode)
-            #Overwrite hittime - computed during decoding
-            hits['hittime']=np.nan
+            hits = astro.decode_readout(rawdata, i, printer = args.printDecode)
+            #Lose hittime - computed during decoding so this info is lost when decoding offline (don't even get relative times because they are processed in offline decoding at machine speed)
+            hits['hittime']=0.0
             #Populate csv
             csvframe = pd.concat([csvframe, hits])
 
         #Save csv
+        csvframe.index.name = "dec_order"
         logger.info(f"Saving to {csvpath}")
         csvframe.to_csv(csvpath)
     
