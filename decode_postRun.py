@@ -77,12 +77,13 @@ def main(args):
             #convert hex to binary and decode
             rawdata = list(binascii.unhexlify(s))
             hits = astro.decode_readout(rawdata, i, printer = args.printDecode)
-            #Overwrite hittime - computed during decoding
-            hits['hittime']=np.nan
+            #Lose hittime - computed during decoding so this info is lost when decoding offline (don't even get relative times because they are processed in offline decoding at machine speed)
+            hits['hittime']=0.0
             #Populate csv
             csvframe = pd.concat([csvframe, hits])
 
         #Save csv
+        csvframe.index.name = "dec_order"
         logger.info(f"Saving to {csvpath}")
         csvframe.to_csv(csvpath)
     
