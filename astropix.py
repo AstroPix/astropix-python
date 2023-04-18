@@ -32,7 +32,7 @@ class astropixRun:
     # Init just opens the chip and gets the handle. After this runs
     # asic_config also needs to be called to set it up. Seperating these 
     # allows for simpler specifying of values. 
-    def __init__(self, clock_period_ns = 5, inject:int = None, offline:bool=False):
+    def __init__(self, chipversion=2, clock_period_ns = 5, inject:int = None, offline:bool=False):
         """
         Initalizes astropix object. 
         No required arguments
@@ -67,6 +67,7 @@ class astropixRun:
             self.injection_row = inject[0]
 
         self.sampleclock_period_ns = clock_period_ns
+        self.chipversion = chipversion
         # Creates objects used later on
         self.decode = Decode(clock_period_ns)
 
@@ -122,15 +123,13 @@ class astropixRun:
 
         self.asic = Asic(self.handle, self.nexys)
 
-        # Get config values from YAML
-        #set chip version
-        self.asic.chipversion=2
-
         #Define YAML path variables
         pathdelim=os.path.sep #determine if Mac or Windows separators in path name
         ymlpath="."+pathdelim+"config"+pathdelim+yaml+".yml"
+
+        #Get config values from YAML and set chip properties
         try:
-            self.asic.load_conf_from_yaml(self.asic.chipversion, ymlpath)
+            self.asic.load_conf_from_yaml(self.chipversion, ymlpath)
         except Exception:
             logger.error('Must pass a configuration file in the form of *.yml')
         #Config stored in dictionary self.asic_config . This is used for configuration in asic_update. 
