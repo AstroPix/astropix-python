@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 class Injectionboard(Nexysio):
     """Sets injection setting for GECCO Injectionboard"""
 
-    def __init__(self, handle) -> None:
+    def __init__(self, handle, onchip=False) -> None:
 
         self._handle = handle
 
@@ -33,6 +33,7 @@ class Injectionboard(Nexysio):
         self._clkdiv = 0
         self._initdelay = 0
         self._pulsesperset = 0
+        self._onchip = onchip
 
     def __patgenreset(self, reset: bool) -> bytes:
         return self.write_register(PG_RESET, reset)
@@ -161,7 +162,11 @@ class Injectionboard(Nexysio):
 
         logger.info("\nWrite Injection Config\n===============================")
 
-        output = self.write_register(PG_OUTPUT, 1)
+        if(self._onchip):
+            output = self.write_register(PG_OUTPUT, 2)
+        else:
+            output = self.write_register(PG_OUTPUT, 1)
+            
         patgenconfig = self.__patgen(self.period, self.cycle, self.clkdiv, self.initdelay)
         pulses = self.__patgenwrite(7, self.pulsesperset)
 
