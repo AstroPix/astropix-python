@@ -27,7 +27,7 @@ import logging
 from modules.setup_logger import logger
 logger = logging.getLogger(__name__)
 
-class astropix2:
+class astropixRun:
 
     # Init just opens the chip and gets the handle. After this runs
     # asic_config also needs to be called to set it up. Seperating these 
@@ -125,6 +125,7 @@ class astropix2:
         # Get config values from YAML
         #set chip version
         self.asic.chipversion=2
+
         #Define YAML path variables
         pathdelim=os.path.sep #determine if Mac or Windows separators in path name
         ymlpath="."+pathdelim+"config"+pathdelim+yaml+".yml"

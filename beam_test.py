@@ -7,7 +7,7 @@ Maintained by: Amanda Steinhebel, amanda.l.steinhebel@nasa.gov
 
 #from msilib.schema import File
 #from http.client import SWITCHING_PROTOCOLS
-from astropix import astropix2
+from astropix import astropixRun
 import modules.hitplotter as hitplotter
 import os
 import binascii
@@ -54,7 +54,7 @@ def main(args):
         os.mkdir(args.outdir)
         
     # Prepare everything, create the object
-    astro = astropix2(inject=args.inject) #no updates in YAML
+    astro = astropixRun(inject=args.inject) #no updates in YAML
 
     astro.init_voltages(vthreshold=args.threshold) #no updates in YAML
 
