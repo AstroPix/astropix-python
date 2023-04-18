@@ -56,10 +56,11 @@ def main(args):
     # Prepare everything, create the object
     astro = astropixRun(chipversion=3, inject=args.inject) 
 
-    astro.init_voltages(vthreshold=args.threshold) 
-
     #Initiate asic with pixel mask as defined in yaml and analog pixel in row0 defined with input argument -a
     astro.asic_init(yaml=args.yaml, analog_col = args.analog)
+
+    print(f"Calling init_voltages, argument vthreshold={args.threshold}")
+    astro.init_voltages(vthreshold=args.threshold)     
 
     #If injection, ensure injection pixel is enabled and initialize
     if args.inject is not None:
