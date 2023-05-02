@@ -5,7 +5,7 @@ Author: Amanda Steinhebel
 amanda.l.steinhebel@nasa.gov
 """
 
-from astropix import astropix2
+from astropix import astropixRun
 import glob
 import binascii
 import pandas as pd
@@ -28,7 +28,7 @@ def main(args):
     f_in = True if args.fileInput is not None else False
 
     #Create objet
-    astro = astropix2(offline=True)
+    astro = astropixRun(offline=True)
 
     #Define output file path
     if args.outDir is not None:

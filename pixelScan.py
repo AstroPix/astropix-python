@@ -6,7 +6,7 @@ Based off beam_test.py and example_loop.py
 Author: Amanda Steinhebel
 """
 
-from astropix import astropix2
+from astropix import astropixRun
 import modules.hitplotter as hitplotter
 import os
 import binascii
@@ -39,9 +39,9 @@ def main(args,row,col, fpgaCon:bool=True, fpgaDiscon:bool=True):
         global astro 
         logger.info('Initiate FPGA connection')
         if boolInj:
-            astro = astropix2(inject=[row,col]) 
+            astro = astropixRun(inject=[row,col]) 
         else:        
-            astro = astropix2()
+            astro = astropixRun()
 
     astro.init_voltages(vthreshold=args.threshold) 
 
