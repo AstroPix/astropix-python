@@ -172,20 +172,24 @@ class astropixRun:
 
     # Methods to update the internal variables. Please don't do it manually
     # This updates the dac config
-    def update_asic_config(self, bias_cfg:dict = None, dac_cfg:dict = None, analog_col:int=None):
+    def update_asic_config(self, bias_cfg:dict = None, idac_cfg:dict = None, vdac_cfg:dict = None, analog_col:int=None):
         """
         Updates and writes confgbits to asic
 
         bias_cfg:dict - Updates the bias settings. Only needs key/value pairs which need updated
-        dac_cfg:dict - Updates DAC settings. Only needs key/value pairs which need updated
+        idac_cfg:dict - Updates iDAC settings. Only needs key/value pairs which need updated
+        vdac_cfg:dict - Updates vDAC settings. Only needs key/value pairs which need updated
         """
         if self._asic_start:
             if bias_cfg is not None:
                 for key in bias_cfg:
                     self.asic.asic_config['biasconfig'][key][1]=bias_cfg[key]
-            if dac_cfg is not None:
-                for key in dac_cfg:
-                    self.asic.asic_config['idacs'][key][1]=dac_cfg[key]
+            if idac_cfg is not None:
+                for key in idac_cfg:
+                    self.asic.asic_config['idacs'][key][1]=idac_cfg[key]
+            if vdac_cfg is not None:
+                for key in vdac_cfg:
+                    self.asic.asic_config['vdacs'][key][1]=vdac_cfg[key]
             else: 
                 logger.info("update_asic_config() got no arguments, nothing to do.")
                 return None
@@ -217,9 +221,7 @@ class astropixRun:
 
 ################## Voltageboard Methods ############################
 
-# Here we intitalize the 8 DAC voltageboard in slot 4. dacvals are carried over from past 
-# scripts. Default from beam_test.py:
-# Use this: (8, [0, 0, 1.1, 1, 0, 0, 1, 1.035])
+# Here we intitalize the 8 DAC voltageboard in slot 4. 
     def init_voltages(self, slot: int = 4, vcal:float = .989, vsupply: float = 2.7, vthreshold:float = None, dacvals: tuple[int, list[float]] = None):
         """
         Configures the voltage board
@@ -232,18 +234,18 @@ class astropixRun:
         dacvals:tuple[int, list[float] - vboard dac settings. Must be fully specified if set. 
         """
         # The default values to pass to the voltage dac. Last value in list is threshold voltage, default 100mV or 1.1
-        # Not in YAML
+        # Included in YAML for v3 (not v2)
+
         # From nicholas's beam_test.py:
         # 3 = Vcasc2, 4=BL, 7=Vminuspix, 8=Thpix 
         default_vdac = (8, [0, 0, 1.1, 1, 0, 0, 1, 1.100])
-        
+
         # used to ensure this has been called in the right order:
         self._voltages_exist = True
 
         # Set dacvals
         if dacvals is None:
             dacvals = default_vdac
-
             # dacvals takes precidence over vthreshold
             if vthreshold is not None:
                 # Turns from mV to V with the 1V offset normally present
@@ -262,21 +264,8 @@ class astropixRun:
         # Send config to the chip
         self.vboard.update_vb()
 
-    # Here we have the stuff to run injection
-
-    # defaults for the arguments:
-    # position: 3
-    # dac_settings: (2, [0.4, 0.0])
-    # Settings from the orininal scripts
-    """
-        inj.period = 100
-        inj.clkdiv = 400
-        inj.initdelay = 10000
-        inj.cycle = 0
-        inj.pulsesperset = 1
-    """
     # Setup Injections
-    def init_injection(self, slot: int = 3, inj_voltage:float = None, inj_period:int = 100, clkdiv:int = 300, initdelay: int = 100, cycle: float = 0, pulseperset: int = 1, dac_config:tuple[int, list[float]] = None):
+    def init_injection(self, slot: int = 3, inj_voltage:float = None, inj_period:int = 100, clkdiv:int = 300, initdelay: int = 100, cycle: float = 0, pulseperset: int = 1, dac_config:tuple[int, list[float]] = None, onchip: bool = False):
         """
         Configure injections
         No required arguments. No returns.
@@ -290,16 +279,18 @@ class astropixRun:
         pulseperset: int
         dac_config:tuple[int, list[float]]: injdac settings. Must be fully specified if set. 
         """
+
         # Default configuration for the dac
         # 0.3 is (default) injection voltage
-        # 2 is slot number for inj board
-        default_injdac = (2, [0.3, 0.0])
+        # 3 is slot number for inj board
+        default_injdac = (8,[0.3, 0.0])
+
+        
         # Some fault tolerance
         try:
             self._voltages_exist
         except Exception:
             raise RuntimeError("init_voltages must be called before init_injection!")
-
         # Sets the dac_setup if it isn't specified
         if dac_config is None:
             dac_settings = default_injdac
@@ -324,8 +315,9 @@ class astropixRun:
         self.inj_volts.vcal = self.vboard.vcal
         self.inj_volts.vsupply = self.vboard.vsupply
         self.inj_volts.update_vb()
+        
         # Now to configure the actual injection thing
-        self.injector = Injectionboard(self.handle)
+        self.injector = Injectionboard(self.handle, onchip=onchip)
         # Now to configure it. above are the values from the original scripting.
         self.injector.period = inj_period
         self.injector.clkdiv = clkdiv
@@ -369,21 +361,28 @@ class astropixRun:
         Returns header for use in a log file with all settings.
         """
         #Get config dictionaries from yaml
+        vdac_str=""
         digitalconfig = {}
         for key in self.asic.asic_config['digitalconfig']:
                 digitalconfig[key]=self.asic.asic_config['digitalconfig'][key][1]
         biasconfig = {}
         for key in self.asic.asic_config['biasconfig']:
                 biasconfig[key]=self.asic.asic_config['biasconfig'][key][1]
-        dacconfig = {}
+        idacconfig = {}
         for key in self.asic.asic_config['idacs']:
-                dacconfig[key]=self.asic.asic_config['idacs'][key][1]
+                idacconfig[key]=self.asic.asic_config['idacs'][key][1]
+        if self.chipversion>2:
+            vdacconfig = {}
+            for key in self.asic.asic_config['vdacs']:
+                    vdacconfig[key]=self.asic.asic_config['vdacs'][key][1]
+            vdac_str=f"vDAC: {vdacconfig}\n"
         arrayconfig = {}
         for key in self.asic.asic_config['recconfig']:
                 arrayconfig[key]=self.asic.asic_config['recconfig'][key][1]
 
         # This is not a nice line, but its the most efficent way to get all the values in the same place.
-        return f"Voltageboard settings: {self.vboard.dacvalues}\n" + f"Digital: {digitalconfig}\n" +f"Biasblock: {biasconfig}\n" + f"DAC: {dacconfig}\n" + f"Receiver: {arrayconfig}\n"
+        return f"Digital: {digitalconfig}\n" +f"Biasblock: {biasconfig}\n" + f"iDAC: {idacconfig}\n"+ f"Receiver: {arrayconfig}\n " + vdac_str
+
 
 
 ############################ Decoder ##############################
@@ -476,7 +475,7 @@ class astropixRun:
 # Below here are internal methods used for constructing things and testing
 
     # _test_io(): A function to read and write a register on the chip to see if 
-    # everythign is working. 
+    # everything is working. 
     # It takes no arguments 
     def _test_io(self):
         try:    # Attempts to write to and read from a register
