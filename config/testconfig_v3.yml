@@ -48,7 +48,7 @@ astropix3:
             vnfoll2:            [6, 1]
             vnbias:             [6, 10]
             vpload:             [6, 5]
-            nu13:               [6, 0]
+            nu13:               [6, 60]
             vncomp:             [6, 2]
             vpfoll:             [6, 60]
             nu16:               [6, 0]
