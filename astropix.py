@@ -237,8 +237,11 @@ class astropixRun:
         # Included in YAML for v3 (not v2)
 
         # From nicholas's beam_test.py:
-        # 3 = Vcasc2, 4=BL, 7=Vminuspix, 8=Thpix 
-        default_vdac = (8, [0, 0, 1.1, 1, 0, 0, 1, 1.100])
+        # 1=thpmos (comparator threshold voltage), 3 = Vcasc2, 4=BL, 7=Vminuspix, 8=Thpix 
+        if self.chipversion == 2:
+            default_vdac = (8, [0, 0, 1.1, 1, 0, 0, 1, 1.100])
+        else: #increase thpmos for v3 pmos pixels
+            default_vdac = (8, [1.1, 0, 1.1, 1, 0, 0, 1, 1.100])
 
         # used to ensure this has been called in the right order:
         self._voltages_exist = True
