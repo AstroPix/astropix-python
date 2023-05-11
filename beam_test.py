@@ -7,7 +7,7 @@ Maintained by: Amanda Steinhebel, amanda.l.steinhebel@nasa.gov
 
 #from msilib.schema import File
 #from http.client import SWITCHING_PROTOCOLS
-from astropix import astropix2
+from astropix import astropixRun
 import modules.hitplotter as hitplotter
 import os
 import binascii
@@ -54,17 +54,17 @@ def main(args):
         os.mkdir(args.outdir)
         
     # Prepare everything, create the object
-    astro = astropix2(inject=args.inject) #no updates in YAML
-
-    astro.init_voltages(vthreshold=args.threshold) #no updates in YAML
+    astro = astropixRun(chipversion=args.chipVer, inject=args.inject) 
 
     #Initiate asic with pixel mask as defined in yaml and analog pixel in row0 defined with input argument -a
     astro.asic_init(yaml=args.yaml, analog_col = args.analog)
 
+    astro.init_voltages(vthreshold=args.threshold)     
+
     #If injection, ensure injection pixel is enabled and initialize
     if args.inject is not None:
         astro.enable_pixel(args.inject[1],args.inject[0])    
-        astro.init_injection(inj_voltage=args.vinj)
+        astro.init_injection(inj_voltage=args.vinj, onchip=onchipBool)
 
     #Enable final configuration
     astro.enable_spi() 
@@ -213,6 +213,9 @@ if __name__ == "__main__":
     parser.add_argument('-y', '--yaml', action='store', required=False, type=str, default = 'testconfig',
                     help = 'filepath (in config/ directory) .yml file containing chip configuration. Default: config/testconfig.yml (All pixels off)')
 
+    parser.add_argument('-V', '--chipVer', default=2, required=False, type=int,
+                    help='Chip version - provide an int')
+    
     parser.add_argument('-s', '--showhits', action='store_true',
                     default=False, required=False,
                     help='Display hits in real time during data taking')
@@ -285,5 +288,8 @@ if __name__ == "__main__":
 
     logger = logging.getLogger(__name__)
 
-    
+    #If using v2, use injection created by injection card
+    #If using v3, use injection created with integrated DACs on chip
+    onchipBool = True if args.chipVer > 2 else False
+
     main(args)

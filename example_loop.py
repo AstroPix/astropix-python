@@ -7,7 +7,7 @@ Author: Amanda Steinhebel
 
 #from msilib.schema import File
 #from http.client import SWITCHING_PROTOCOLS
-from astropix import astropix2
+from astropix import astropixRun
 import modules.hitplotter as hitplotter
 import os
 import binascii
@@ -54,9 +54,9 @@ def main(args,row,col,injectPix):
 
     # Prepare everything, create the object
     if args.inject:
-        astro = astropix2(inject=injectPix) #enable injections
+        astro = astropixRun(inject=injectPix) #enable injections
     else:
-        astro = astropix2() #initialize without enabling injections
+        astro = astropixRun() #initialize without enabling injections
 
     astro.init_voltages(vthreshold=args.threshold) #no updates in YAML
 

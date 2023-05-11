@@ -10,7 +10,7 @@ Edit: Added binary search algorithm to decrease runtime from O(n) to O(log(n))
 Author: Nicolas Striebig
 """
 
-from astropix import astropix2
+from astropix import astropixRun
 import modules.hitplotter as hitplotter
 import os
 import binascii
@@ -31,7 +31,7 @@ logname = "./runlogs/AstropixRunlog_" + time.strftime("%Y%m%d-%H%M%S") + ".log"
 
 global astro 
 logger.info('Initiate FPGA connection')
-astro = astropix2() #initialize without enabling injections
+astro = astropixRun() #initialize without enabling injections
 
 #Init 
 def main(args,row,col, fpgaCon:bool=True, fpgaDiscon:bool=True):
