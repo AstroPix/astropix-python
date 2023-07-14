@@ -39,9 +39,9 @@ def main(args,row,col, fpgaCon:bool=True, fpgaDiscon:bool=True):
         global astro 
         logger.info('Initiate FPGA connection')
         if boolInj:
-            astro = astropixRun(inject=[row,col]) 
+            astro = astropixRun(chipversion=args.chipVer, inject=[row,col]) 
         else:        
-            astro = astropixRun()
+            astro = astropixRun(chipversion=args.chipVer)
 
     astro.init_voltages(vthreshold=args.threshold) 
 
@@ -158,6 +158,9 @@ if __name__ == "__main__":
 
     parser.add_argument('-o', '--outdir', default='.', required=False,
                     help='Output Directory for all datafiles')
+    
+    parser.add_argument('-V', '--chipVer', default=2, required=False, type=int,
+                    help='Chip version - provide an int')
 
     parser.add_argument('-y', '--yaml', action='store', required=False, type=str, default = 'testconfig',
                     help = 'filepath (in config/ directory) .yml file containing chip configuration. Default: config/testconfig.yml (All pixels off)')
