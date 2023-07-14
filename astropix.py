@@ -420,14 +420,18 @@ class astropixRun:
         hit_list = []
         for hit in list_hits:
             # Generates the values from the bitstream
-            id          = int(hit[0]) >> 3
-            payload     = int(hit[0]) & 0b111
-            location    = int(hit[1])  & 0b111111
-            col         = 1 if (int(hit[1]) >> 7 ) & 1 else 0
-            timestamp   = int(hit[2])
-            tot_msb     = int(hit[3]) & 0b1111
-            tot_lsb     = int(hit[4])   
-            tot_total   = (tot_msb << 8) + tot_lsb
+            try:
+                id          = int(hit[0]) >> 3
+                payload     = int(hit[0]) & 0b111
+                location    = int(hit[1])  & 0b111111
+                col         = 1 if (int(hit[1]) >> 7 ) & 1 else 0
+                timestamp   = int(hit[2])
+                tot_msb     = int(hit[3]) & 0b1111
+                tot_lsb     = int(hit[4])   
+                tot_total   = (tot_msb << 8) + tot_lsb
+            except IndexError: #hit cut off at end of stream
+                id, payload, location, col = -1, -1, -1, -1
+                timestamp, tot_msb, tot_lsb, tot_total = -1, -1, -1, -1
 
             wrong_id        = 0 if (id) == 0 else '\x1b[0;31;40m{}\x1b[0m'.format(id)
             wrong_payload   = 4 if (payload) == 4 else'\x1b[0;31;40m{}\x1b[0m'.format(payload)   

@@ -76,11 +76,14 @@ def main(args):
         for i,s in enumerate(strings):
             #convert hex to binary and decode
             rawdata = list(binascii.unhexlify(s))
-            hits = astro.decode_readout(rawdata, i, printer = args.printDecode)
-            #Lose hittime - computed during decoding so this info is lost when decoding offline (don't even get relative times because they are processed in offline decoding at machine speed)
-            hits['hittime']=0.0
-            #Populate csv
-            csvframe = pd.concat([csvframe, hits])
+            try:
+                hits = astro.decode_readout(rawdata, i, printer = args.printDecode)
+                #Lose hittime - computed during decoding so this info is lost when decoding offline (don't even get relative times because they are processed in offline decoding at machine speed)
+                hits['hittime']=0.0
+                #Populate csv
+                csvframe = pd.concat([csvframe, hits])
+            except IndexError: #cannot decode empty bitstream so skip it
+                continue
 
         #Save csv
         csvframe.index.name = "dec_order"
