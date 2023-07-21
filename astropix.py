@@ -391,6 +391,10 @@ class astropixRun:
 ############################ Decoder ##############################
     # This function generates a list of the hits in the stream. Retuerns a bytearray
 
+    def get_FW_readout(self):
+        readout = self.nexys.read_spi_fifo()
+        return readout
+
     def get_readout(self, bufferlength:int = 20):
         """
         Reads hit buffer.
