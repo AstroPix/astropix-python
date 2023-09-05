@@ -230,7 +230,7 @@ class Spi:
 
             read_stream.extend(readbuffer)
 
-            sleep(0.01)
+            #sleep(0.01)
 
         return read_stream
 
