@@ -6,7 +6,6 @@ Created on Tue Jul 12 20:07:13 2021
 @author: Nicolas Striebig
 """
 import logging
-from time import sleep
 from bitstring import BitArray
 
 from modules.setup_logger import logger
@@ -31,6 +30,16 @@ SPI_READBACK_REG_CONF = 0x3D
 SPI_HEADER_EMPTY    = 0b001 << 5
 SPI_HEADER_ROUTING  = 0b010 << 5
 SPI_HEADER_SR       = 0b011 << 5
+
+# SPI configreg
+SPI_WRITE_FIFO_RESET = 0b1 << 0
+SPI_WRITE_FIFO_EMPTY = 0b1 << 1
+SPI_WRITE_FIFO_FULL  = 0b1 << 2
+SPI_READ_FIFO_RESET  = 0b1 << 3
+SPI_READ_FIFO_EMPTY  = 0b1 << 4
+SPI_READ_FIFO_FULL   = 0b1 << 5
+SPI_READBACK_ENABLE  = 0b1 << 6
+SPI_MODULE_RESET     = 0b1 << 7
 
 logger = logging.getLogger(__name__)
 
@@ -220,17 +229,18 @@ class Spi:
         """ Continous readout """
         pass
 
-    def read_spi_fifo(self) -> bytearray:
-        """ Read Data from SPI FIFO until empty """
-
+    def read_spi_fifo(self, max_reads: int = 1) -> bytearray:
+        """ Read Data from SPI FIFO until empty
+        :param max_reads: Max read cycles
+        :returns: SPI read stream
+        """
         read_stream = bytearray()
+        readcount = 0
 
-        while not self.get_spi_config() & 16:
-            readbuffer = self.read_spi(64)
-
+        while not (self.get_spi_config() & SPI_READ_FIFO_EMPTY) and readcount<max_reads:
+            readbuffer = self.read_spi(1024)
             read_stream.extend(readbuffer)
-
-            #sleep(0.01)
+            readcount += 1
 
         return read_stream
 
@@ -294,7 +304,7 @@ class Spi:
         i = 0
         counter = buffersize / 3
 
-        # WrFIFO bit positons in spi_config register 0x21
+        # WrFIFO bit positions in spi_config register 0x21
         compare_empty = 2
         compare_full = 4
 
