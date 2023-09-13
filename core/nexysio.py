@@ -155,8 +155,16 @@ class Nexysio(Spi):
 
         :param num: Number of Bytes to read
         """
+        remaining = num
+        bytes = bytearray()
+
         try:
-            return self._handle.read(num)
+            while remaining > 0:
+                rbytes = self._handle.read(num)
+                bytes.extend(rbytes)
+                remaining -= len(rbytes)
+
+            return bytes
         except AttributeError:
             logger.error('Nexys Read Error')
             return None
