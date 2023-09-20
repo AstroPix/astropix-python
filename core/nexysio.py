@@ -86,7 +86,7 @@ class Nexysio(Spi):
         try:
             if 'description' in devinfo and devinfo['description'] == NEXYS_USB_DESC:
                 print("\u001b[32mDigilent USB A opened\n \u001b[0m")
-
+                logger.info("\u001b[32mDigilent USB A opened\n \u001b[0m")
             else:
                 self.close()
                 raise NameError
@@ -127,7 +127,7 @@ class Nexysio(Spi):
                     # Return handle
                     return self._handle
 
-        print('Nexys not found')
+        logger.error('Nexys not found')
         return False
 
     def write(self, value: bytes) -> None:
@@ -160,8 +160,10 @@ class Nexysio(Spi):
 
         try:
             while remaining > 0:
-                rbytes = self._handle.read(num)
+                rbytes = self._handle.read(remaining)
+                logger.info("Reading %d bytes from FTDI", remaining)
                 bytes.extend(rbytes)
+                logger.info("Read %d bytes from FTDI", len(rbytes))
                 remaining -= len(rbytes)
 
             return bytes
