@@ -82,9 +82,9 @@ Must go in this order!!
 
 1. Creating the instance
     - After import, call astropix2().
-    - Usage: `astropix2([none required], clock_period_ns: int, inject: bool)`
+    - Usage: `astropixRun([none required], clock_period_ns: int, inject: bool)`
     - optional arguments: 
-        - clock_period_ns, default 10
+        - clock_period_ns, default 5
         - inject, default `False`. When true configures the pixels to accept an injection voltage
 2. Initializing voltages
     - call `astro.init_voltages([none required] slot, vcal, vsupply, vthreshold, [optional] dacvals)`

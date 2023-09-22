@@ -133,7 +133,7 @@ def main(args):
                 # Writes the hex version to hits
                 bitfile.write(f"{i}\t{str(binascii.hexlify(readout))}\n")
                 bitfile.flush() #make it simulate streaming
-                print(binascii.hexlify(readout))
+                #print(binascii.hexlify(readout))
 
                 # Added fault tolerance for decoding, the limits of which are set through arguments
                 try:
@@ -238,7 +238,7 @@ if __name__ == "__main__":
                     help='Prints runtime from seeing a hit to finishing the decode to terminal')
 
     parser.add_argument('-L', '--loglevel', type=str, choices = ['D', 'I', 'E', 'W', 'C'], action="store", default='I',
-                    help='Set loglevel used. Options: D - debug, I - info, E - error, W - warning, C - critical. DEFAULT: D')
+                    help='Set loglevel used. Options: D - debug, I - info, E - error, W - warning, C - critical. DEFAULT: I')
     """
     parser.add_argument('--ludicrous-speed', type=bool, action='store_true', default=False,
                     help="Fastest possible data collection. No decode, no output, no file.\
