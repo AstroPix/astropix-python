@@ -391,13 +391,17 @@ class astropixRun:
 ############################ Decoder ##############################
     # This function generates a list of the hits in the stream. Retuerns a bytearray
 
-    def get_FW_readout(self):
+    def get_readout(self):
+        """
+        Reads hit buffer once triggered by chip 
+        Returns bytearray
+        """
         readout = self.nexys.read_spi_fifo()
         return readout
 
-    def get_readout(self, bufferlength:int = 20):
+    def get_SW_readout(self, bufferlength:int = 20):
         """
-        Reads hit buffer.
+        Reads hit buffer after pinging interupt 
         bufferlength:int - length of buffer to write. Multiplied by 8 to give number of bytes
         Returns bytearray
         """
@@ -473,11 +477,11 @@ class astropixRun:
     # To be called when initalizing the asic, clears the FPGAs memory 
     def dump_fpga(self):
         """
-        Reads out hit buffer and disposes of the output.
+        Force reads out hit buffer and disposes of the output.
 
         Does not return or take arguments. 
         """
-        readout = self.get_readout()
+        readout = self.get_SW_readout(20)
         del readout
 
 

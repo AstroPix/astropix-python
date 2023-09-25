@@ -124,26 +124,20 @@ def main(args):
             if args.maxtime is not None:
                 if time.time() >= end_time: break
             
-            
-            if astro.hits_present(): # Checks if hits are present
-                # We aren't using timeit, just measuring the diffrence in ns
-                if args.timeit: start = time.time_ns()
-    
-                time.sleep(.001) # this is probably not needed, will ask Nicolas
+            # We aren't using timeit, just measuring the diffrence in ns
+            if args.timeit: start = time.time_ns()
+            readout = astro.get_readout()
+            if args.timeit: print(f"Readout took {(time.time_ns()-start)*10**-9}s")
 
-                readout = astro.get_readout(3) # Gets the bytearray from the chip
-
-                if args.timeit:
-                    print(f"Readout took {(time.time_ns()-start)*10**-9}s")
-
+            if readout: #if there is data contained in the readout stream
                 # Writes the hex version to hits
                 bitfile.write(f"{i}\t{str(binascii.hexlify(readout))}\n")
-                print(binascii.hexlify(readout))
+                bitfile.flush() #make it simulate streaming
+                #print(binascii.hexlify(readout))
 
                 # Added fault tolerance for decoding, the limits of which are set through arguments
                 try:
                     hits = astro.decode_readout(readout, i, printer = True)
-
                 except IndexError:
                     errors += 1
                     logger.warning(f"Decoding failed. Failure {errors} of {max_errors} on readout {i}")
@@ -156,13 +150,12 @@ def main(args):
                     if errors > max_errors:
                         logger.warning(f"Decoding failed {errors} times on an index error. Terminating Progam...")
                 finally:
-                    i += 1
-
+                    i+=1
                     # If we are saving a csv this will write it out. 
                     if args.saveascsv:
                         csvframe = pd.concat([csvframe, hits])
 
-                    # This handels the hitplotting. Code by Henrike and Amanda
+                    # This handles the hitplotting. Code by Henrike and Amanda
                     if args.showhits:
                         # This ensures we aren't plotting NaN values. I don't know if this would break or not but better 
                         # safe than sorry
@@ -177,10 +170,6 @@ def main(args):
                     # If we are logging runtime, this does it!
                     if args.timeit:
                         print(f"Read and decode took {(time.time_ns()-start)*10**-9}s")
-
-            # If no hits are present this waits for some to accumulate
-            else: time.sleep(.001)
-
 
     # Ends program cleanly when a keyboard interupt is sent.
     except KeyboardInterrupt:
@@ -197,10 +186,7 @@ def main(args):
         astro.close_connection() # Closes SPI
         logger.info("Program terminated successfully")
     # END OF PROGRAM
-
-
     
-
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Astropix Driver Code')
@@ -252,7 +238,7 @@ if __name__ == "__main__":
                     help='Prints runtime from seeing a hit to finishing the decode to terminal')
 
     parser.add_argument('-L', '--loglevel', type=str, choices = ['D', 'I', 'E', 'W', 'C'], action="store", default='I',
-                    help='Set loglevel used. Options: D - debug, I - info, E - error, W - warning, C - critical. DEFAULT: D')
+                    help='Set loglevel used. Options: D - debug, I - info, E - error, W - warning, C - critical. DEFAULT: I')
     """
     parser.add_argument('--ludicrous-speed', type=bool, action='store_true', default=False,
                     help="Fastest possible data collection. No decode, no output, no file.\
