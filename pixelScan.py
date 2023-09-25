@@ -108,14 +108,10 @@ def main(args,row,col, fpgaCon:bool=True, fpgaDiscon:bool=True):
             # Break conditions
             if args.maxtime is not None:
                 if time.time() >= end_time: break
+            readout = astro.get_readout()
             
-            if astro.hits_present(): # Checks if hits are present
-    
-                time.sleep(.001) # this is probably not needed, will ask Nicolas
-
-                readout = astro.get_readout(3) # Gets the bytearray from the chip
-
-                # Writes the hex version to hits
+            if readout: # Checks if hits are present
+                    # Writes the hex version to hits
                 bitfile.write(f"{i}\t{str(binascii.hexlify(readout))}\n")
                 #print(binascii.hexlify(readout))
 
