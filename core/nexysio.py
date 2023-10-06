@@ -161,9 +161,9 @@ class Nexysio(Spi):
         try:
             while remaining > 0:
                 rbytes = self._handle.read(remaining)
-                logger.info("Reading %d bytes from FTDI", remaining)
+                logger.debug("Reading %d bytes from FTDI", remaining)
                 bytes.extend(rbytes)
-                logger.info("Read %d bytes from FTDI", len(rbytes))
+                logger.debug("Read %d bytes from FTDI", len(rbytes))
                 remaining -= len(rbytes)
 
             return bytes

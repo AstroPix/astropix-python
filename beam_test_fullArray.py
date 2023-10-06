@@ -96,6 +96,7 @@ def main(args):
             if args.timeit: print(f"Readout took {(time.time_ns()-start)*10**-9}s")
 
             if readout: #if there is data contained in the readout stream
+                logger.debug(binascii.hexlify(readout))
                 # Write raw data file
                 if args.binaryData:
                     #Save full stream as binary
