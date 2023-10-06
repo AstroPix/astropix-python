@@ -80,8 +80,8 @@ def main(args):
     # Enables the hitplotter and uses logic on whether or not to save the images
     if args.showhits: plotter = hitplotter.HitPlotter(35, outdir=(args.outdir if args.plotsave else None))
 
+    logger.info("Collecting data!")
     try: # By enclosing the main loop in try/except we are able to capture keyboard interupts cleanly
-        
         while errors <= max_errors: # Loop continues 
 
             # This might be possible to do in the loop declaration, but its a lot easier to simply add in this logic

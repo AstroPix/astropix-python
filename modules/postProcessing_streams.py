@@ -41,7 +41,7 @@ def regex_filter(li):
              (r"(bc){2,}"," ")]
 
     out = [li := re.sub(raw, clean, li) for raw, clean in regex][-1].split()
-    dat = [o for o in out[1:] if len(o) == 10]
+    dat = [o for o in out[1:]] #return all bytes that aren't railing or an idle byte, array entries indicate data packets in raw stream
 
     #return datastring index, #bad hits cleaned, and hits
     return int(out[0]), len(out[1:])-len(dat), dat
