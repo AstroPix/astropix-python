@@ -48,7 +48,7 @@ def main(args):
     #Enable final configuration
     astro.enable_spi() 
     logger.info("Chip configured")
-    astro.dump_fpga()
+    #astro.dump_fpga()
 
     if args.inject is not None:
         astro.start_injection()

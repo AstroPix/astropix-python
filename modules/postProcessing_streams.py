@@ -108,9 +108,10 @@ def hit_decoder(li):
         for hit in packet:
             # Generates the values from the bitstream
             try:
-                id          = int(hit[0][0:4])
-                payload     = int(hit[0],2) & 0b111
-                location    = int(hit[1],2)  & 0b111111
+                id          = int(hit[0][0:4],2)
+                payload     = int(hit[0]) & 0b111
+                #location    = int(hit[1])  & 0b111111
+                location    = int(hit[1][2:8],2)
                 col         = 1 if (int(hit[1][0])) & 1 else 0
                 timestamp   = int(hit[2],2)
                 tot_msb     = int(hit[3],2) & 0b1111
