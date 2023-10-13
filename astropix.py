@@ -172,7 +172,7 @@ class astropixRun:
 
     # Methods to update the internal variables. Please don't do it manually
     # This updates the dac config
-    def update_asic_config(self, bias_cfg:dict = None, idac_cfg:dict = None, vdac_cfg:dict = None, analog_col:int=None):
+    def update_asic_config(self, bias_cfg:dict = None, idac_cfg:dict = None, vdac_cfg:dict = None):
         """
         Updates and writes confgbits to asic
 
@@ -282,25 +282,14 @@ class astropixRun:
         pulseperset: int
         dac_config:tuple[int, list[float]]: injdac settings. Must be fully specified if set. 
         """
-
-        # Default configuration for the dac
-        # 0.3 is (default) injection voltage
-        # 3 is slot number for inj board
-        default_injdac = (8,[0.3, 0.0])
-
-        
         # Some fault tolerance
         try:
             self._voltages_exist
         except Exception:
             raise RuntimeError("init_voltages must be called before init_injection!")
-        # Sets the dac_setup if it isn't specified
-        if dac_config is None:
-            dac_settings = default_injdac
-        else:
-            dac_settings = dac_config
 
         # The dac_config takes presedence over a specified threshold.
+        # Fault tolerance 
         if (inj_voltage is not None) and (dac_config is None):
             # elifs check to ensure we are not injecting a negative value because we don't have that ability
             if inj_voltage < 0:
@@ -309,15 +298,29 @@ class astropixRun:
                 logger.warning("Cannot inject more than 1800mV, will use defaults")
                 inj_voltage = 300 #Sets to 300 mV
 
-            inj_voltage = inj_voltage / 1000
-            dac_settings[1][0] = inj_voltage
+        if onchip:
+            if inj_voltage:
+                #Update vdac value from yml (v3)
+                vinj_vdac = inj_voltage / 1.8 * 1023. / 1000. #convert inj_voltage in mV to V
+                self.update_asic_config(vdac_cfg={'vinj':int(vinj_vdac)})
 
-        # Create the object!
-        self.inj_volts = Voltageboard(self.handle, slot, dac_settings)
-        # set the parameters
-        self.inj_volts.vcal = self.vboard.vcal
-        self.inj_volts.vsupply = self.vboard.vsupply
-        self.inj_volts.update_vb()
+        else:
+            # Default configuration for the dac
+            # 0.3 is (default) injection voltage
+            default_injdac = (8,[0.3, 0.0])
+            # Sets the dac_setup if it isn't specified
+            if dac_config is None:
+                dac_settings = default_injdac
+            else:
+                dac_settings = dac_config
+            dac_settings[1][0] = inj_voltage / 1000. #convert mV input to V
+
+            # Create the object - updates injector card on GECCO board (v2)
+            self.inj_volts = Voltageboard(self.handle, slot, dac_settings)
+            # set the parameters
+            self.inj_volts.vcal = self.vboard.vcal
+            self.inj_volts.vsupply = self.vboard.vsupply
+            self.inj_volts.update_vb()
         
         # Now to configure the actual injection thing
         self.injector = Injectionboard(self.handle, onchip=onchip)
@@ -481,7 +484,7 @@ class astropixRun:
 
         Does not return or take arguments. 
         """
-        readout = self.get_SW_readout(20)
+        readout = self.get_readout()
         del readout
 
 

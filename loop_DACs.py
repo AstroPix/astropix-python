@@ -201,7 +201,7 @@ if __name__ == "__main__":
     parser.add_argument('-a', '--analog', action='store', required=False, type=int, default = 0,
                     help = 'Turn on analog output in the given column. Default: Column 0. Set to None to turn off analog output.')
 
-    parser.add_argument('-t', '--threshold', type = float, action='store', default=None,
+    parser.add_argument('-t', '--threshold', type = float, action='store', default=100,
                     help = 'Threshold voltage for digital ToT (in mV). DEFAULT 100mV')
 
     parser.add_argument('-r', '--maxruns', type=int, action='store', default=None,

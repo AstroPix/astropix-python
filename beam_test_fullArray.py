@@ -9,8 +9,6 @@ import modules.hitplotter as hitplotter
 import modules.postProcessing_streams as pps
 import os
 import binascii
-import pandas as pd
-import numpy as np
 import time
 import logging
 import argparse
@@ -48,7 +46,7 @@ def main(args):
     #Enable final configuration
     astro.enable_spi() 
     logger.info("Chip configured")
-    #astro.dump_fpga()
+    astro.dump_fpga()
 
     if args.inject is not None:
         astro.start_injection()
@@ -72,10 +70,11 @@ def main(args):
     # textfiles are always saved so we open it up 
     openVar = 'wb' if args.binaryData else 'w'
     bitfile = open(bitpath,openVar)
-    # Writes all the config information to the file
-    bitfile.write(astro.get_log_header())
-    bitfile.write(str(args))
-    bitfile.write("\n") 
+    if not args.binaryData:
+        # Writes all the config information to the file
+        bitfile.write(astro.get_log_header())
+        bitfile.write(str(args))
+        bitfile.write("\n") 
 
     # Enables the hitplotter and uses logic on whether or not to save the images
     if args.showhits: plotter = hitplotter.HitPlotter(35, outdir=(args.outdir if args.plotsave else None))

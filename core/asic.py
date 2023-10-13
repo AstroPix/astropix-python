@@ -320,7 +320,7 @@ class Asic(Nexysio):
         return bitvector    
 
     def readback_asic(self):
-        asicbits = self.gen_asic_pattern(self.gen_asic_vector(), True, readback_mode = True)
+        asicbits = self.nexys.gen_asic_pattern(self.gen_asic_vector(), True, readback_mode = True)
         print(asicbits)
         self.nexys.write(asicbits)
 
@@ -330,7 +330,7 @@ class Asic(Nexysio):
         Takes no input and does not return
         """
         if self._chipversion == 1:
-            dummybits = self.gen_asic_pattern(BitArray(uint=0, length=245), True) # Not needed for v2
+            dummybits = self.nexys.gen_asic_pattern(BitArray(uint=0, length=245), True) # Not needed for v2
             self.nexys.write(dummybits)
 
         # Write config
