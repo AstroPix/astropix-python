@@ -100,29 +100,41 @@ def hit_decoder(li):
     # converts to binary strings, reverses strings (individually reverse bytes)
     bin_output = [[readbyte(s)[::-1] for s in a]  for a in bytes_data]
 
-    hit_list = [[packet[i:i + bytesPerHit] for i in range(0, len(packet), bytesPerHit)] for packet in bin_output]
-
     decoded_hits = []
     #define decoding scheme
-    for packet in hit_list:
-        for hit in packet:
-            # Generates the values from the bitstream
-            try:
-                id          = int(hit[0][0:4])
-                payload     = int(hit[0],2) & 0b111
-                location    = int(hit[1],2)  & 0b111111
-                col         = 1 if (int(hit[1][0])) & 1 else 0
-                timestamp   = int(hit[2],2)
-                tot_msb     = int(hit[3],2) & 0b1111
-                tot_lsb     = int(hit[4],2)   
-                tot_total   = (tot_msb << 8) + tot_lsb
-            except IndexError: #hit cut off at end of stream
-                id, payload, location, col = -1, -1, -1, -1
-                timestamp, tot_msb, tot_lsb, tot_total = -1, -1, -1, -1
-            #Calculate ToT in us
-            tot_us = (tot_total * sampleclock_period_ns)/1000.0
-        
-            hits = [readout,id,payload,location,col,timestamp,tot_msb,tot_lsb,tot_total,tot_us] 
-            decoded_hits.append(hits)
+    for i,packet in enumerate(bin_output):
+        start = 0
+        end_of_packet = False
+        while not end_of_packet:
+            if start + 5 > len(packet):
+                end_of_packet = True
+            else:
+                hit = packet[start:start+5]
+                if readbyte('bc')[::-1] in hit:
+                    start += 1
+                else:
+                    # Generates the values from the bitstream
+                    try:
+                        id          = int(hit[0][0:4])
+                        payload     = int(hit[0],2) & 0b111
+                        location    = int(hit[1],2)  & 0b111111
+                        col         = 1 if (int(hit[1][0])) & 1 else 0
+                        timestamp   = int(hit[2],2)
+                        tot_msb     = int(hit[3],2) & 0b1111
+                        tot_lsb     = int(hit[4],2)   
+                        tot_total   = (tot_msb << 8) + tot_lsb
+                    except IndexError: #hit cut off at end of stream
+                        id, payload, location, col = -1, -1, -1, -1
+                        timestamp, tot_msb, tot_lsb, tot_total = -1, -1, -1, -1
+                    if location >= 0 and location < 35:
+
+                        #Calculate ToT in us
+                        tot_us = (tot_total * sampleclock_period_ns)/1000.0
+
+                        hits = [readout,id,payload,location,col,timestamp,tot_msb,tot_lsb,tot_total,tot_us]
+                        decoded_hits.append(hits)
+                        start += 5
+                    else:
+                        start += 1
 
     return pd.DataFrame(decoded_hits)
