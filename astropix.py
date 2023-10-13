@@ -484,7 +484,7 @@ class astropixRun:
 
         Does not return or take arguments. 
         """
-        readout = self.get_SW_readout(20)
+        readout = self.get_readout()
         del readout
 
 
