@@ -8,7 +8,6 @@ Author: Amanda Steinhebel
 #from msilib.schema import File
 #from http.client import SWITCHING_PROTOCOLS
 from astropix import astropixRun
-import modules.hitplotter as hitplotter
 import os
 import binascii
 import pandas as pd
@@ -42,7 +41,6 @@ decode_fail_frame = pd.DataFrame({
                 'hittime': np.nan
                 }, index=[0]
 )
-
   
 
 #Init 
@@ -54,18 +52,14 @@ def main(args,row,col,injectPix):
 
     # Prepare everything, create the object
     if args.inject:
-        astro = astropixRun(inject=injectPix) #enable injections
+        astro = astropixRun(chipversion=args.chipVer, inject=injectPix) #enable injections
     else:
-        astro = astropixRun() #initialize without enabling injections
+        astro = astropixRun(chipversion=args.chipVer) #initialize without enabling injections
 
     astro.init_voltages(vthreshold=args.threshold) #no updates in YAML
 
-    #Define YAML path variables
-    pathdelim=os.path.sep #determine if Mac or Windows separators in path name
-    ymlpath="config"+pathdelim+args.yaml+".yml"
-
     #Initiate asic with pixel mask as defined in yaml 
-    astro.asic_init(yaml=ymlpath)
+    astro.asic_init(yaml=args.yaml)
 
     #Enable single pixel in (col,row)
     #Updates asic by default
@@ -105,7 +99,7 @@ def main(args,row,col,injectPix):
         ])
 
     # Save final configuration to output file    
-    ymlpathout="config"+pathdelim+args.yaml+"_"+time.strftime("%Y%m%d-%H%M%S")+".yml"
+    ymlpathout="config/"+args.yaml+"_"+time.strftime("%Y%m%d-%H%M%S")+".yml"
     astro.write_conf_to_yaml(ymlpathout)
     # And here for the text files/logs
     bitpath = args.outdir + '/' + fname + time.strftime("%Y%m%d-%H%M%S") + '.log'
@@ -126,12 +120,9 @@ def main(args,row,col,injectPix):
             if args.maxtime is not None:
                 if time.time() >= end_time: break
             
+            readout = astro.get_readout()
             
-            if astro.hits_present(): # Checks if hits are present
-    
-                time.sleep(.001) # this is probably not needed, will ask Nicolas
-
-                readout = astro.get_readout(3) # Gets the bytearray from the chip
+            if readout:
 
                 # Writes the hex version to hits
                 bitfile.write(f"{i}\t{str(binascii.hexlify(readout))}\n")
@@ -185,6 +176,9 @@ if __name__ == "__main__":
 
     parser.add_argument('-o', '--outdir', default='.', required=False,
                     help='Output Directory for all datafiles')
+    
+    parser.add_argument('-V', '--chipVer', default=2, required=False, type=int,
+                    help='Chip version - provide an int')
 
     parser.add_argument('-y', '--yaml', action='store', required=False, type=str, default = 'testconfig',
                     help = 'filepath (in config/ directory) .yml file containing chip configuration. Default: config/testconfig.yml (All pixels off)')
@@ -196,10 +190,10 @@ if __name__ == "__main__":
     parser.add_argument('-i', '--inject', action='store_true', default=False, required=False,
                     help =  'Turn on injection. Default: No injection')
 
-    parser.add_argument('-v','--vinj', action='store', default = None, type=float,
+    parser.add_argument('-v','--vinj', action='store', default = 300, type=float,
                     help = 'Specify injection voltage (in mV). DEFAULT 300 mV')
 
-    parser.add_argument('-t', '--threshold', type = float, action='store', default=None,
+    parser.add_argument('-t', '--threshold', type = float, action='store', default=100,
                     help = 'Threshold voltage for digital ToT (in mV). DEFAULT 100mV')
 
     parser.add_argument('-r', '--maxruns', type=int, action='store', default=None,

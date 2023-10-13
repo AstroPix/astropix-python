@@ -216,13 +216,13 @@ if __name__ == "__main__":
     parser.add_argument('-i', '--inject', action='store', default=None, type=int, nargs=2,
                     help =  'Turn on injection in the given row and column. Default: No injection')
 
-    parser.add_argument('-v','--vinj', action='store', default = None, type=float,
+    parser.add_argument('-v','--vinj', action='store', default = 300, type=float,
                     help = 'Specify injection voltage (in mV). DEFAULT 300 mV')
 
     parser.add_argument('-a', '--analog', action='store', required=False, type=int, default = 0,
                     help = 'Turn on analog output in the given column. Default: Column 0.')
 
-    parser.add_argument('-t', '--threshold', type = float, action='store', default=None,
+    parser.add_argument('-t', '--threshold', type = float, action='store', default=100,
                     help = 'Threshold voltage for digital ToT (in mV). DEFAULT 100mV')
     
     parser.add_argument('-E', '--errormax', action='store', type=int, default='100', 
@@ -239,12 +239,7 @@ if __name__ == "__main__":
 
     parser.add_argument('-L', '--loglevel', type=str, choices = ['D', 'I', 'E', 'W', 'C'], action="store", default='I',
                     help='Set loglevel used. Options: D - debug, I - info, E - error, W - warning, C - critical. DEFAULT: I')
-    """
-    parser.add_argument('--ludicrous-speed', type=bool, action='store_true', default=False,
-                    help="Fastest possible data collection. No decode, no output, no file.\
-                         Saves bitstreams in memory until keyboard interupt or other error and then writes them to file.\
-                             Use is not generally recommended")
-    """
+
     parser.add_argument
     args = parser.parse_args()
 

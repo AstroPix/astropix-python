@@ -161,7 +161,7 @@ if __name__ == "__main__":
     parser.add_argument('-y', '--yaml', action='store', required=False, type=str, default = 'testconfig',
                     help = 'filepath (in config/ directory) .yml file containing chip configuration. Default: config/testconfig.yml (All pixels off)')
 
-    parser.add_argument('-t', '--threshold', type = float, action='store', default=None,
+    parser.add_argument('-t', '--threshold', type = float, action='store', default=100,
                     help = 'Threshold voltage for digital ToT (in mV). DEFAULT 100mV')
 
     parser.add_argument('-M', '--maxtime', type=float, action='store', default=None,
@@ -173,7 +173,7 @@ if __name__ == "__main__":
     parser.add_argument('-R', '--rowrange', action='store', default=[0,34], type=int, nargs=2,
                     help =  'Loop over given range of rows. Default: 0 34')
                     
-    parser.add_argument('-v','--vinj', action='store', default = None, type=float,
+    parser.add_argument('-v','--vinj', action='store', default = 300, type=float,
                     help = 'Specify injection voltage (in mV) to turn on injection. If argument not used, injection not enabled. DEFAULT None')
   
     parser.add_argument('-c', '--saveascsv', action='store_true', default=False, required=False, 

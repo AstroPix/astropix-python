@@ -158,7 +158,7 @@ if __name__ == "__main__":
                     default=False, required=False, 
                     help='save output files as CSV. If False, save as txt. Default: FALSE')
     
-    parser.add_argument('-t', '--threshold', type = float, action='store', default=None,
+    parser.add_argument('-t', '--threshold', type = float, action='store', default=80,
                     help = 'Threshold voltage for digital ToT (in mV). DEFAULT 80mV')
 
     parser.add_argument('-M', '--maxtime', type=float, action='store', default=None,
