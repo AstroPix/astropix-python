@@ -126,7 +126,7 @@ def hit_decoder(li):
                     except IndexError: #hit cut off at end of stream
                         id, payload, location, col = -1, -1, -1, -1
                         timestamp, tot_msb, tot_lsb, tot_total = -1, -1, -1, -1
-                    if location >= 0 and location < 35:
+                    if location >= 0 and location < 35 and id >= 0 and id < 4 and payload >= 3 and payload <= 4:
 
                         #Calculate ToT in us
                         tot_us = (tot_total * sampleclock_period_ns)/1000.0
