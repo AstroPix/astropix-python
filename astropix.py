@@ -112,8 +112,7 @@ class astropixRun:
         self.asic_init() - initalize the asic configuration. Must be called first
         Positional arguments: None
         Optional:
-        dac_setup: dict - dictionary of values passed to the configuration. Only needs values diffent from defaults
-        bias_setup: dict - dict of values for the bias configuration Only needs key/vals for changes from default
+        dac_setup: dict - dictionary of values passed to the configuration, voltage OR current DAC. Only needs values diffent from defaults        bias_setup: dict - dict of values for the bias configuration Only needs key/vals for changes from default
         blankmask: bool - Create a blank mask (everything disabled). Pixels can be enabled manually 
         analog_col: int - Sets a column to readout analog data from. 
         """
@@ -132,12 +131,24 @@ class astropixRun:
             self.asic.load_conf_from_yaml(self.chipversion, ymlpath)
         except Exception:
             logger.error('Must pass a configuration file in the form of *.yml')
-        #Config stored in dictionary self.asic_config . This is used for configuration in asic_update. 
+        #Config stored in dictionary self.asic_config . This iss sused for configuration in asic_update. 
         #If any changes are made, make change to self.asic_config so that it is reflected on-chip when 
         # asic_update is called
 
+        #Sort DAC settings to idac vs vdac
+        idac_setup, vdac_setup = None, None
+        if dac_setup:
+            for k in dac_setup.keys():
+                if k in self.asic.asic_config['idacs']:
+                    idac_setup = {k: dac_setup[k]}
+                elif k in self.asic.asic_config['vdacs']:
+                    vdac_setup = {k: dac_setup[k]}
+                else:
+                    logger.warning(f"Sent bad DAC value {dac_setup} - not a DAC setting. Aborting DAC update")
+                    return
+
         #Override yaml if arguments were given in run script
-        self.update_asic_config(bias_setup, dac_setup)
+        self.update_asic_config(bias_setup, idac_setup, vdac_setup)
 
         # Set analog output
         if (analog_col is not None) and (analog_col <= self.asic._num_cols):
