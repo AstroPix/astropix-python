@@ -120,6 +120,7 @@ def main(args):
 
     #post-processing, if data was originally written to .txt
     if not args.binaryData:
+        #create PPS file
         bitpath_pps = bitpath[:-4]+"_PPS.log"
         postProcessing = pps.postProcessing_streams(bitpath)
 
@@ -127,6 +128,25 @@ def main(args):
             f.write("EventNmb \t BadEvents \t Data \n")
             f.write('\n'.join(f'{tup[0]} \t {tup[1]} \t {tup[2]}' for tup in postProcessing.dump()))
             f.close()
+
+        #create decoded CSV
+        csvpath = bitpath[:-4]+".csv"
+        postProcessing2 = pps.postProcessing_streams(bitpath_pps, dec=True)
+        df_decoded = postProcessing2.decode()
+        df_decoded.columns = [ 
+            'readout',
+            'Chip ID',
+            'payload',
+            'location',
+            'isCol',
+            'timestamp',
+            'tot_msb',
+            'tot_lsb',
+            'tot_total',
+            'tot_us'
+        ]
+        df_decoded.index.name = "dec_ord"
+        df_decoded.to_csv(csvpath)      
 
     # END OF PROGRAM
     
