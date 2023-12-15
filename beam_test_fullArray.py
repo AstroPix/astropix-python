@@ -62,7 +62,12 @@ def main(args):
     # Prepares the file paths 
     # Save final configuration to output file    
     ymlpathout=args.outdir +"/"+args.yaml+"_"+time.strftime("%Y%m%d-%H%M%S")+".yml"
-    astro.write_conf_to_yaml(ymlpathout)
+    try:
+        astro.write_conf_to_yaml(ymlpathout)
+    except FileNotFoundError:
+        ypath = args.yaml.split('/')
+        ymlpathout=args.outdir+"/"+ypath[1]+"_"+time.strftime("%Y%m%d-%H%M%S")+".yml"
+        astro.write_conf_to_yaml(ymlpathout)
     # Prepare output data file
     dataExt = '.bin' if args.binaryData else '.log'
     bitpath = args.outdir + '/' + fname + time.strftime("%Y%m%d-%H%M%S") + dataExt

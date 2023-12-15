@@ -101,7 +101,12 @@ def main(args):
 
     # Save final configuration to output file    
     ymlpathout=args.outdir +"/"+args.yaml+"_"+time.strftime("%Y%m%d-%H%M%S")+".yml"
-    astro.write_conf_to_yaml(ymlpathout)
+    try:
+        astro.write_conf_to_yaml(ymlpathout)
+    except FileNotFoundError:
+        ypath = args.yaml.split('/')
+        ymlpathout=args.outdir+"/"+ypath[1]+"_"+time.strftime("%Y%m%d-%H%M%S")+".yml"
+        astro.write_conf_to_yaml(ymlpathout)
     # Prepare text files/logs
     bitpath = args.outdir + '/' + fname + time.strftime("%Y%m%d-%H%M%S") + '.log'
     # textfiles are always saved so we open it up 
