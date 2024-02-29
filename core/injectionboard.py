@@ -9,6 +9,8 @@ Created on Sun Jun 27 21:03:43 2021
 import logging
 
 from core.nexysio import Nexysio
+from core.voltageboard import Voltageboard
+from core.asic import Asic
 from modules.setup_logger import logger
 
 PG_RESET    = 2
@@ -24,16 +26,26 @@ logger = logging.getLogger(__name__)
 class Injectionboard(Nexysio):
     """Sets injection setting for GECCO Injectionboard"""
 
-    def __init__(self, handle, onchip=False) -> None:
+    def __init__(self, handle, asic, pos:int=0, onchip=False) -> None:
+        """Init
+        :param handle: USB device handle
+        :param pos: Set card position on gecco board from 1-8
+        :param onchip: Set if onchip injection circuit is used
+        """
 
         self._handle = handle
+        self._asic = asic
 
         self._period = 0
         self._cycle = 0
         self._clkdiv = 0
         self._initdelay = 0
         self._pulsesperset = 0
+        self._amplitude = 0
         self._onchip = onchip
+
+        if not self._onchip:
+            self._injvoltage = Voltageboard(handle, pos, (2, [0.0, 0.0]))
 
     def __patgenreset(self, reset: bool) -> bytes:
         return self.write_register(PG_RESET, reset)
@@ -87,7 +99,7 @@ class Injectionboard(Nexysio):
 
     @property
     def pulsesperset(self) -> int:
-        """Injection pulses/set"""
+        """Injection pulses"""
 
         return self._pulsesperset
 
@@ -96,6 +108,44 @@ class Injectionboard(Nexysio):
         if 0 <= pulsesperset <= 255:
             self._pulsesperset = pulsesperset
 
+    @property
+    def amplitude(self) -> int:
+        """Injection amplitude"""
+
+        return self._amplitude
+
+    @amplitude.setter
+    def amplitude(self, amplitude: float) -> None:
+        if 0 <= amplitude <= 1.8:
+            self._amplitude = amplitude
+
+    @property
+    def vcal(self) -> float:
+        """Voltageboard calibration value
+        Set DAC to 1V and write measured value to vcal
+        """
+        return self._injvoltage.vcal
+
+    @vcal.setter
+    def vcal(self, voltage: float) -> None:
+        self._injvoltage.vcal = voltage
+
+    @property
+    def vsupply(self) -> float:
+        """Voltage supply voltage
+        Set voltageboard supply voltage
+        """
+        return self._injvoltage.vsupply
+
+    @vsupply.setter
+    def vsupply(self, voltage: float) -> None:
+        self._injvoltage.vsupply = voltage
+
+    @property
+    def onchip(self) -> float:
+        """Unses integrated VDAC"""
+        return self._onchip
+    
     def __patgen(
             self, period: int,
             cycle: int,
@@ -162,7 +212,7 @@ class Injectionboard(Nexysio):
 
         logger.info("\nWrite Injection Config\n===============================")
 
-        if(self._onchip):
+        if self._onchip:
             output = self.write_register(PG_OUTPUT, 2)
         else:
             output = self.write_register(PG_OUTPUT, 1)
@@ -194,7 +244,7 @@ class Injectionboard(Nexysio):
         return bytes(data)
 
     def __stop(self) -> bytes:
-        """
+        """/
         Stop injection
 
         :returns: stop vector
@@ -212,11 +262,23 @@ class Injectionboard(Nexysio):
     def update_inj(self) -> None:
         """Update injectionboard"""
 
+        # Update amplitude
+        self.update_inj_amplitude()
+
         # Stop injection
         self.write(self.__stop())
 
         # Configure injection
         self.write(self.__configureinjection())
+
+    def update_inj_amplitude(self) -> None:
+        """Write injection amplitude"""
+        if not self._onchip:
+            self._injvoltage.dacvalues = (2, [self._amplitude, 0])
+            self._injvoltage.update_vb()
+        else:
+            pass
+            # TODO: update asic config if onchip vdacs are used
 
     def start(self) -> None:
         """Start injection"""
@@ -224,7 +286,7 @@ class Injectionboard(Nexysio):
         # Stop injection
         self.write(self.__stop())
 
-        # update inj
+        # update injboard amplitude
         self.update_inj()
 
         # Start Injection

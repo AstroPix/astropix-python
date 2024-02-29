@@ -296,13 +296,14 @@ class astropixRun:
         dac_config:tuple[int, list[float]]: injdac settings. Must be fully specified if set. 
         """
         
+        """
         # Some fault tolerance
         try:
             self._voltages_exist
         except Exception:
             raise RuntimeError("init_voltages must be called before init_injection!")
+        """
 
-        # The dac_config takes presedence over a specified threshold.
         # Fault tolerance 
         if (inj_voltage is not None) and (dac_config is None):
             # elifs check to ensure we are not injecting a negative value because we don't have that ability
@@ -311,34 +312,19 @@ class astropixRun:
             elif inj_voltage > 1800:
                 logger.warning("Cannot inject more than 1800mV, will use defaults")
                 inj_voltage = 300 #Sets to 300 mV
+            #Update vdac value from yml (v3)
+            vinj_vdac = inj_voltage / 1.8 * 1023. / 1000. #convert inj_voltage in mV to V
+            self.update_asic_config(vdac_cfg={'vinj':int(vinj_vdac)})
 
         # Create injector object
-        self.injector = Injectionboard(self.handle, onchip=onchip)
+        self.injector = Injectionboard(self.handle, self.asic, pos=3, onchip=onchip)
 
-        if onchip:
-            if inj_voltage:
-                #Update vdac value from yml (v3)
-                vinj_vdac = inj_voltage / 1.8 * 1023. / 1000. #convert inj_voltage in mV to V
-                self.update_asic_config(vdac_cfg={'vinj':int(vinj_vdac)})
-        else:
-            # Default configuration for the dac
-            # 0.3 is (default) injection voltage
-            default_injdac = (8,[0.3, 0.0])
-            # Sets the dac_setup if it isn't specified
-            if dac_config is None:
-                dac_settings = default_injdac
-            else:
-                dac_settings = dac_config
-            dac_settings[1][0] = inj_voltage / 1000. #convert mV input to V
-
-            # Create the object - updates injector card on GECCO board
-            self.inj_volts = Voltageboard(self.handle, slot, dac_settings)
-            # set the parameters
-            self.inj_volts.vcal = self.vboard.vcal
-            self.inj_volts.vsupply = self.vboard.vsupply
-            self.inj_volts.update_vb()
-        
-        # Now to configure it. above are the values from the original scripting.
+        if not onchip: #set voltageboard values if using GECCO card
+            self.injector.vcal = self.vboard.vcal
+            self.injector.vsupply = self.vboard.vsupply
+            self.injector.amplitude = inj_voltage / 1000. #convert mV to V
+            
+        # Configure injector object
         self.injector.period = inj_period
         self.injector.clkdiv = clkdiv
         self.injector.initdelay = initdelay
