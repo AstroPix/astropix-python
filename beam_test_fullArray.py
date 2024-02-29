@@ -110,6 +110,8 @@ def main(args):
                     #Write full stream in hex
                     bitfile.write(f"{i}\t{str(binascii.hexlify(readout))}\n")
                 i+=1
+            if i%1000:
+                logger.info(f"{i} readout streams collected")
 
     # Ends program cleanly when a keyboard interupt is sent.
     except KeyboardInterrupt:
@@ -123,8 +125,8 @@ def main(args):
         astro.close_connection() # Closes SPI
         logger.info("Program terminated successfully")
 
-    #post-processing, if data was originally written to .txt
-    if not args.binaryData:
+    #post-processing, if data was originally written to .txt and if any data was read off
+    if not args.binaryData and i>0:
         #create PPS file
         bitpath_pps = bitpath[:-4]+"_PPS.log"
         postProcessing = pps.postProcessing_streams(bitpath)
@@ -137,6 +139,7 @@ def main(args):
         #create decoded CSV
         csvpath = bitpath[:-4]+".csv"
         postProcessing2 = pps.postProcessing_streams(bitpath_pps, dec=True)
+
         df_decoded = postProcessing2.decode()
         df_decoded.columns = [ 
             'readout',
@@ -152,6 +155,12 @@ def main(args):
         ]
         df_decoded.index.name = "dec_ord"
         df_decoded.to_csv(csvpath)      
+    elif i==0:
+        logger.warning("No data recorded - nothing to decode. Deleting empty file")
+        if os.path.exists(bitpath):
+            os.remove(bitpath)
+        else:
+            print(f"The file {bitpath} does not exist")
 
     # END OF PROGRAM
     
@@ -182,7 +191,7 @@ if __name__ == "__main__":
     parser.add_argument('-i', '--inject', action='store', default=None, type=int, nargs=2,
                     help =  'Turn on injection in the given row and column. Default: No injection')
 
-    parser.add_argument('-v','--vinj', action='store', default = None, type=float,
+    parser.add_argument('-v','--vinj', action='store', default = 300, type=float,
                     help = 'Specify injection voltage (in mV). DEFAULT 300 mV')
 
     parser.add_argument('-a', '--analog', action='store', required=False, type=int, default = 0,
