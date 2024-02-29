@@ -155,8 +155,8 @@ class astropixRun:
 
         # Turns on injection if so desired 
         if self.injection_col is not None:
-            self.asic.enable_inj_col(self.injection_col, inplace=False)
-            self.asic.enable_inj_row(self.injection_row, inplace=False)
+            self.asic.set_inj_col(self.injection_col, True)
+            self.asic.set_inj_row(self.injection_row, True)
 
         # Load config it to the chip
         logger.info("LOADING TO ASIC...")
@@ -164,13 +164,16 @@ class astropixRun:
         logger.info("ASIC SUCCESSFULLY CONFIGURED")
 
     #Interface with asic.py 
-    def enable_pixel(self, col: int, row: int, inplace:bool=True):
-       self.asic.enable_pixel(col, row, inplace)
+    def enable_pixel(self, col: int, row: int):
+       self.asic.set_pixel_comparator(col, row, True)
+
+    def disable_pixel(self, col: int, row: int):
+       self.asic.set_pixel_comparator(col, row, False)
 
     #Turn on injection of different pixel than the one used in _init_
-    def enable_injection(self, col:int, row:int, inplace:bool=True):
-        self.asic.enable_inj_col(col, inplace)
-        self.asic.enable_inj_row(row, inplace)
+    def enable_injection(self, col:int, row:int):
+        self.asic.set_inj_col(col, True)
+        self.asic.set_inj_row(row, True)
 
     # The method to write data to the asic. Called whenever somthing is changed
     # or after a group of changes are done. Taken straight from asic.py.
@@ -219,6 +222,9 @@ class astropixRun:
         self.nexys.spi_clkdiv = 255
         self.nexys.send_routing_cmd()
         logger.info("SPI ENABLED")
+
+    def asic_configure(self):
+        self.asic_update()
 
     def close_connection(self):
         """
@@ -308,9 +314,7 @@ class astropixRun:
             elif inj_voltage > 1800:
                 logger.warning("Cannot inject more than 1800mV, will use defaults")
                 inj_voltage = 300 #Sets to 300 mV
-            #Update vdac value from yml (v3)
-            vinj_vdac = inj_voltage / 1.8 * 1023. / 1000. #convert inj_voltage in mV to V
-            self.update_asic_config(vdac_cfg={'vinj':int(vinj_vdac)})
+            self.asic.set_internal_vdac('vinj', inj_voltage/1000.)
 
         # Create injector object
         self.injector = Injectionboard(self.handle, self.asic, pos=3, onchip=onchip)

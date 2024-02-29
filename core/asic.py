@@ -10,7 +10,6 @@ Functions for ASIC configuration
 """
 import logging
 import yaml
-import sys
 
 from bitstring import BitArray
 
@@ -19,6 +18,11 @@ from modules.setup_logger import logger
 
 
 logger = logging.getLogger(__name__)
+
+COLCONFIG_MASK_ALL = 0b001_11111_11111_11111_11111_11111_11111_11110
+COLCONFIG_MASK_ROW = 0b111_11111_11111_11111_11111_11111_11111_11110
+COLCONFIG_MASK_COL = 0b101_11111_11111_11111_11111_11111_11111_11111
+COLCONFIG_MASK_AMP = 0b011_11111_11111_11111_11111_11111_11111_11111
 
 class Asic(Nexysio):
     """Configure ASIC"""
@@ -106,29 +110,6 @@ class Asic(Nexysio):
     def num_chips(self, chips):
         self._num_chips = chips
 
-    def enable_inj_row(self, row: int, inplace:bool=True):
-        """
-        Enable injection in specified row
-
-        Takes:
-        row: int -  Row number
-        inplace:bool - True - Updates asic after updating pixel mask
-        """
-        if row < self.num_rows:
-            self.asic_config['recconfig'][f'col{row}'][1] = self.asic_config['recconfig'].get(f'col{row}', 0b001_11111_11111_11111_11111_11111_11111_11110)[1] | 0b000_00000_00000_00000_00000_00000_00000_00001
-        if inplace: self.asic_update()
-
-    def enable_inj_col(self, col: int, inplace:bool=True):
-        """
-        Enable injection in specified column
-
-        Takes:
-        col: int -  Column number
-        inplace:bool - True - Updates asic after updating pixel mask
-        """
-        if col < self.num_cols:
-            self.asic_config['recconfig'][f'col{col}'][1] = self.asic_config['recconfig'].get(f'col{col}', 0b001_11111_11111_11111_11111_11111_11111_11110)[1] | 0b010_00000_00000_00000_00000_00000_00000_00000
-        if inplace: self.asic_update()
 
     def enable_ampout_col(self, col: int, inplace:bool=True):
         """
@@ -140,57 +121,46 @@ class Asic(Nexysio):
         """
         #Disable all analog pixels
         for i in range(self.num_cols):
-            self.asic_config['recconfig'][f'col{col}'][1] = self.asic_config['recconfig'][f'col{col}'][1] & 0b011_11111_11111_11111_11111_11111_11111_11111
-
+            self.asic_config['recconfig'][f'col{i}'][1] &= COLCONFIG_MASK_AMP
         #Enable analog pixel in column <col>
-        self.asic_config['recconfig'][f'col{col}'][1] = self.asic_config['recconfig'][f'col{col}'][1] | 0b100_00000_00000_00000_00000_00000_00000_00000
-        
+        self.asic_config['recconfig'][f'col{col}'][1] |= 1 << 37        
         if inplace: self.asic_update()
 
-    def enable_pixel(self, col: int, row: int, inplace:bool=True):
-        """
-        Turns on comparator in specified pixel
-
-        Takes:
-        col: int - Column of pixel
-        row: int - Row of pixel
-        inplace:bool - True - Updates asic after updating pixel mask
-        """
-        if(row < self.num_rows and col < self.num_cols):
-            self.asic_config['recconfig'][f'col{col}'][1] = self.asic_config['recconfig'].get(f'col{col}', 0b001_11111_11111_11111_11111_11111_11111_11110)[1] & ~(2 << row)
-
-        if inplace: self.asic_update()
-
-    def disable_pixel(self, col: int, row: int, inplace:bool=True):
-        """
-        Disable comparator in specified pixel
-
-        Takes:
-        col: int - Column of pixel
-        row: int - Row of pixel
-        inplace:bool - True - Updates asic after updating pixel mask
-        """
-        if(row < self.num_rows and col < self.num_cols):
-            self.asic_config['recconfig'][f'col{col}'][1] = self.asic_config['recconfig'].get(f'col{col}', 0b001_11111_11111_11111_11111_11111_11111_11110)[1] | (2 << row)
-        if inplace: self.asic_update()
-
-
-    def disable_inj_row(self, row: int):
-        """Disable row injection switch
+    def set_pixel_comparator(self, col: int, row: int, enable: bool):
+        """Enable or disable pixel comparator for specified pixel
+        :param col: Col number
         :param row: Row number
+        :param enable: True to enable, False to disable
+        """
+        if row < self.num_rows and col < self.num_cols:
+            if enable:
+                self.asic_config['recconfig'][f'col{col}'][1] &= ~(2 << row)
+            else:
+                self.asic_config['recconfig'][f'col{col}'][1] |= (2 << row)
+
+    def set_inj_row(self, row: int, enable: bool):
+        """Enable or disable row injection switch
+        :param row: Row number
+        :param enable: True to enable, False to disable
         """
         if row < self.num_rows:
-            self.asic_config['recconfig'][f'col{row}'][1] = self.asic_config['recconfig'].get(f'col{row}', 0b001_11111_11111_11111_11111_11111_11111_11110)[1] & 0b111_11111_11111_11111_11111_11111_11111_11110
+            if enable:
+                self.asic_config['recconfig'][f'col{row}'][1] |= 1 << 0
+            else:
+                self.asic_config['recconfig'][f'col{row}'][1] &= COLCONFIG_MASK_ROW
 
-
-    def disable_inj_col(self, col: int):
-        """Disable col injection switch
+    def set_inj_col(self, col: int, enable: bool):
+        """Enable or disable col injection switch
         :param col: Col number
+        :param enable: True to enable, False to disable
         """
         if col < self.num_cols:
-            self.asic_config['recconfig'][f'col{col}'][1] = self.asic_config['recconfig'].get(f'col{col}', 0b001_11111_11111_11111_11111_11111_11111_11110)[1] & 0b101_11111_11111_11111_11111_11111_11111_11111
+            if enable:
+                self.asic_config['recconfig'][f'col{col}'][1] |= 1 << 36
+            else:
+                self.asic_config['recconfig'][f'col{col}'][1] &= COLCONFIG_MASK_COL
 
-    def get_pixel(self, col: int, row: int):
+    def get_pixel(self, col: int, row: int) -> bool:
         """
         Checks if a given pixel is enabled
 
@@ -199,19 +169,30 @@ class Asic(Nexysio):
         row: int - row of pixel
         """
         if row < self.num_rows:
-            if self.asic_config['recconfig'].get(f'col{col}')[1] & (1<<(row+1)):
-                return False
-            return True
+            return not bool(self.asic_config['recconfig'].get(f'col{col}')[1] & (1 << (row + 1)))
 
         logger.error("Invalid row %d larger than %d", row, self.num_rows)
         return None
 
     def reset_recconfig(self):
-        """Reset recconfig by disabling all pixels and disabling all injection switches and mux ouputs
-        """
+        """Reset recconfig to default mask"""
         for key in self.asic_config['recconfig']:
-            self.asic_config['recconfig'][key][1] = 0b001_11111_11111_11111_11111_11111_11111_11110
+            self.asic_config['recconfig'][key][1] = COLCONFIG_MASK_ALL
 
+    def set_internal_vdac(self, dac: str, voltage: float, vdda: float = 1.8, nbits: int = 10) -> None:
+        """Set integrated VDAC voltage
+        :param dac: Name of dac
+        :param voltage: Voltage from 0 to 1.8
+        :param vdd: Supply voltage VDDA
+        :param nbits: VDAC resolution
+        """
+        if dac in self.asic_config['vdacs'] and 0 <= voltage <= 1.8:
+            #dacval = voltage * vdda / 2**nbits
+            dacval = voltage / vdda * 2**nbits
+            self.asic_config['vdacs'][dac][1] = int(dacval)
+            logger.info('Set internal vdac: %s to %d V (dacval: %d)', dac, voltage, dacval)
+        else:
+            logger.warning('Can not set internal vdac: %s to %d V!', dac, voltage)
 
     @staticmethod
     def __int2nbit(value: int, nbits: int) -> BitArray:
@@ -226,13 +207,14 @@ class Asic(Nexysio):
         try:
             return BitArray(uint=value, length=nbits)
         except ValueError:
-            logger.error('Allowed Values 0 - %d', 2**nbits-1)
+            logger.error('Allowed Values 0 - %d', 2**nbits - 1)
             return None
 
     def load_conf_from_yaml(self, chipversion: int, filename: str, **kwargs) -> None:
         """Load ASIC config from yaml
-        :param chipversion: AstroPix version
+        :param chipversion: Name of yml file in config folder
         :param filename: Name of yml file in config folder
+        :param chipname: Name of the chip i.e. astropix
         """
 
         chipname = kwargs.get('chipname', 'astropix')
@@ -262,7 +244,7 @@ class Asic(Nexysio):
             logger.info("%s%d matrix dimensions found!", chipname, chipversion)
         except KeyError:
             logger.error("%s%d matrix dimensions not found! Does the chip version (-V) match that in the yml file?", chipname, chipversion)
-            sys.exit(1)
+            raise
 
         # Get chip configs
         if self.num_chips > 1:
@@ -272,14 +254,14 @@ class Asic(Nexysio):
                     logger.info("Telescope chip_%d config found!", chip_number)
                 except KeyError:
                     logger.error("Telescope chip_%d config not found!", chip_number)
-                    sys.exit(1)
+                    raise
         else:
             try:
                 self.asic_config = dict_from_yml.get(self.chip)['config']
                 logger.info("%s%d config found!", chipname, chipversion)
             except KeyError:
                 logger.error("%s%d config not found!", chipname, chipversion)
-                sys.exit(1)
+                raise
 
 
     def gen_asic_vector(self, msbfirst: bool = False) -> BitArray:
@@ -305,7 +287,7 @@ class Asic(Nexysio):
             for key in self.asic_config:
                 for values in self.asic_config[key].values():
                     #bitvector.append(self.__int2nbit(values[1], values[0]))
-                    if(key=='vdacs'):
+                    if key == 'vdacs':
                         bitvector_vdac_reversed = BitArray(self.__int2nbit(values[1], values[0]))
                         bitvector_vdac_reversed.reverse()
                         bitvector.append(bitvector_vdac_reversed)
@@ -321,7 +303,6 @@ class Asic(Nexysio):
 
     def readback_asic(self):
         asicbits = self.nexys.gen_asic_pattern(self.gen_asic_vector(), True, readback_mode = True)
-        print(asicbits)
         self.nexys.write(asicbits)
 
     def asic_update(self):
@@ -338,3 +319,69 @@ class Asic(Nexysio):
         for value in asicbits:
             self.nexys.write(value)
         logger.info("Wrote configbits successfully")
+
+################ Depreciated ################
+    def enable_inj_row(self, row: int, inplace:bool=True):
+        """
+        Enable injection in specified row
+
+        Takes:
+        row: int -  Row number
+        inplace:bool - True - Updates asic after updating pixel mask
+        """        
+        
+        self.set_inj_row(row, True)
+        logger.warning("enable_inj_row() and disable_inj_row() are deprecated use set_inj_row()")
+
+    def enable_inj_col(self, col: int, inplace:bool=True):
+        """
+        Enable injection in specified column
+
+        Takes:
+        col: int -  Column number
+        inplace:bool - True - Updates asic after updating pixel mask
+        """
+
+        self.set_inj_col(col, True)
+        logger.warning("enable_inj_col() and disable_inj_col() are deprecated use set_inj_col()")
+
+    def enable_pixel(self, col: int, row: int, inplace:bool=True):
+        """
+        Turns on comparator in specified pixel
+
+        Takes:
+        col: int - Column of pixel
+        row: int - Row of pixel
+        inplace:bool - True - Updates asic after updating pixel mask
+        """
+
+        self.set_pixel_comparator(col, row, True)
+        logger.warning("enable_pixel() and disable_pixel() are deprecated use set_pixel_comparator()")
+        if inplace: self.asic_update()
+
+    def disable_pixel(self, col: int, row: int, inplace:bool=True):
+        """
+        Disable comparator in specified pixel
+
+        Takes:
+        col: int - Column of pixel
+        row: int - Row of pixel
+        inplace:bool - True - Updates asic after updating pixel mask
+        """
+        self.set_pixel_comparator(col, row, False)
+        logger.warning("enable_pixel() and disable_pixel() are deprecated use set_pixel_comparator()")
+
+
+    def disable_inj_row(self, row: int):
+        """Disable row injection switch
+        :param row: Row number
+        """
+        self.set_inj_row(row, False)
+        logger.warning("enable_inj_row() and disable_inj_row() are deprecated use set_inj_row()")
+
+    def disable_inj_col(self, col: int):
+        """Disable col injection switch
+        :param col: Col number
+        """
+        self.set_inj_col(col, False)
+        logger.warning("enable_inj_col() and disable_inj_col() are deprecated use set_inj_col()")
