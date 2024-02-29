@@ -261,7 +261,7 @@ class Asic(Nexysio):
 
             logger.info("%s%d matrix dimensions found!", chipname, chipversion)
         except KeyError:
-            logger.error("%s%d matrix dimensions not found!", chipname, chipversion)
+            logger.error("%s%d matrix dimensions not found! Does the chip version (-V) match that in the yml file?", chipname, chipversion)
             sys.exit(1)
 
         # Get chip configs

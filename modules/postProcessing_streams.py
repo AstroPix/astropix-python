@@ -1,6 +1,3 @@
-#import matplotlib.pyplot as plt
-#import os
-from asyncio import DatagramProtocol
 import re
 import pandas as pd
 
@@ -35,9 +32,11 @@ class postProcessing_streams:
         Returns all decoded hits as DataFrame, structure: readout, Chip ID, payload, location, isCol, timestamp, tot_msb, tot_lsb, tot_total, tot_us
         """
         data = [hit_decoder(i) for i in self.lines]
-        data_df = pd.concat(data)
-
-        return data_df
+        try:
+            data_df = pd.concat(data)
+            return data_df
+        except ValueError: #no data recorded so nothing to concatenate
+            return
     
 def readstream(stream):
     """Simple function to read a bytestream from a binary file and

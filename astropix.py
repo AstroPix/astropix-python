@@ -17,10 +17,9 @@ from core.asic import Asic
 from bitstring import BitArray
 from tqdm import tqdm
 import pandas as pd
-import regex as re
 import time
 import yaml
-import os
+import os, sys
 
 # Logging stuff
 import logging
@@ -101,6 +100,7 @@ class astropixRun:
 
             except yaml.YAMLError as exc:
                 logger.error(exc)
+                sys.exit(1)
         
 
 ##################### ASIC METHODS FOR USERS #########################
@@ -112,7 +112,8 @@ class astropixRun:
         self.asic_init() - initalize the asic configuration. Must be called first
         Positional arguments: None
         Optional:
-        dac_setup: dict - dictionary of values passed to the configuration, voltage OR current DAC. Only needs values diffent from defaults        bias_setup: dict - dict of values for the bias configuration Only needs key/vals for changes from default
+        dac_setup: dict - dictionary of values passed to the configuration, voltage OR current DAC. Only needs values diffent from defaults        
+        bias_setup: dict - dict of values for the bias configuration Only needs key/vals for changes from default
         blankmask: bool - Create a blank mask (everything disabled). Pixels can be enabled manually 
         analog_col: int - Sets a column to readout analog data from. 
         """
@@ -130,8 +131,9 @@ class astropixRun:
         try:
             self.asic.load_conf_from_yaml(self.chipversion, ymlpath)
         except Exception:
-            logger.error('Must pass a configuration file in the form of *.yml')
-        #Config stored in dictionary self.asic_config . This iss sused for configuration in asic_update. 
+            logger.error('Must pass a configuration file in the form of *.yml - check the path/file name')
+            sys.exit(1)
+        #Config stored in dictionary self.asic_config . This is used for configuration in asic_update. 
         #If any changes are made, make change to self.asic_config so that it is reflected on-chip when 
         # asic_update is called
 
@@ -293,6 +295,7 @@ class astropixRun:
         pulseperset: int
         dac_config:tuple[int, list[float]]: injdac settings. Must be fully specified if set. 
         """
+        
         # Some fault tolerance
         try:
             self._voltages_exist
@@ -309,12 +312,14 @@ class astropixRun:
                 logger.warning("Cannot inject more than 1800mV, will use defaults")
                 inj_voltage = 300 #Sets to 300 mV
 
+        # Create injector object
+        self.injector = Injectionboard(self.handle, onchip=onchip)
+
         if onchip:
             if inj_voltage:
                 #Update vdac value from yml (v3)
                 vinj_vdac = inj_voltage / 1.8 * 1023. / 1000. #convert inj_voltage in mV to V
                 self.update_asic_config(vdac_cfg={'vinj':int(vinj_vdac)})
-
         else:
             # Default configuration for the dac
             # 0.3 is (default) injection voltage
@@ -326,15 +331,13 @@ class astropixRun:
                 dac_settings = dac_config
             dac_settings[1][0] = inj_voltage / 1000. #convert mV input to V
 
-            # Create the object - updates injector card on GECCO board (v2)
+            # Create the object - updates injector card on GECCO board
             self.inj_volts = Voltageboard(self.handle, slot, dac_settings)
             # set the parameters
             self.inj_volts.vcal = self.vboard.vcal
             self.inj_volts.vsupply = self.vboard.vsupply
             self.inj_volts.update_vb()
         
-        # Now to configure the actual injection thing
-        self.injector = Injectionboard(self.handle, onchip=onchip)
         # Now to configure it. above are the values from the original scripting.
         self.injector.period = inj_period
         self.injector.clkdiv = clkdiv
