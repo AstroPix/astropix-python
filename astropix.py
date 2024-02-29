@@ -31,12 +31,11 @@ class astropixRun:
     # Init just opens the chip and gets the handle. After this runs
     # asic_config also needs to be called to set it up. Seperating these 
     # allows for simpler specifying of values. 
-    def __init__(self, chipversion=2, clock_period_ns = 5, inject:int = None, offline:bool=False):
+    def __init__(self, chipversion=2, inject:int = None, offline:bool=False):
         """
         Initalizes astropix object. 
         No required arguments
         Optional:
-        clock_period_ns:int - period of main clock in ns
         inject:bool - if set to True will enable injection for the whole array.
         offline:bool - if True, do not try to interface with chip
         """
@@ -65,10 +64,7 @@ class astropixRun:
             self.injection_col = inject[1]
             self.injection_row = inject[0]
 
-        self.sampleclock_period_ns = clock_period_ns
         self.chipversion = chipversion
-        # Creates objects used later on
-        self.decode = Decode(clock_period_ns)
 
 ##################### YAML INTERACTIONS #########################
 #reading done in core/asic.py
@@ -413,7 +409,7 @@ class astropixRun:
         return readout
 
 
-    def decode_readout(self, readout:bytearray, i:int, printer: bool = True):
+    def decode_readout(self, readout:bytearray, i:int, clock_period_ns:int =5, printer: bool = True):
         """
         Decodes readout
 
@@ -422,60 +418,18 @@ class astropixRun:
         i: int - Readout number
 
         Optional:
+        clock_period_ns:int - period of main clock in ns
         printer: bool - Print decoded output to terminal
 
         Returns dataframe
         """
+        # Creates object
+        self.decode = Decode(clock_period_ns, nchips=self.asic.num_chips)
 
         list_hits = self.decode.hits_from_readoutstream(readout)
-        hit_list = []
-        for hit in list_hits:
-            # Generates the values from the bitstream
-            try:
-                id          = int(hit[0]) >> 3
-                payload     = int(hit[0]) & 0b111
-                location    = int(hit[1])  & 0b111111
-                col         = 1 if (int(hit[1]) >> 7 ) & 1 else 0
-                timestamp   = int(hit[2])
-                tot_msb     = int(hit[3]) & 0b1111
-                tot_lsb     = int(hit[4])   
-                tot_total   = (tot_msb << 8) + tot_lsb
-            except IndexError: #hit cut off at end of stream
-                id, payload, location, col = -1, -1, -1, -1
-                timestamp, tot_msb, tot_lsb, tot_total = -1, -1, -1, -1
+        df=self.decode.decode_astropix3_hits(list_hits, i, printer)
 
-            wrong_id        = 0 if (id) == 0 else '\x1b[0;31;40m{}\x1b[0m'.format(id)
-            wrong_payload   = 4 if (payload) == 4 else'\x1b[0;31;40m{}\x1b[0m'.format(payload)   
-
-                
-            
-            # will give terminal output if desiered
-            if printer:
-                print(
-                f"{i} Header: ChipId: {wrong_id}\tPayload: {wrong_payload}\t"
-                f"Location: {location}\tRow/Col: {'Col' if col else 'Row'}\t"
-                f"Timestamp: {timestamp}\t"
-                f"ToT: MSB: {tot_msb}\tLSB: {tot_lsb} Total: {tot_total} ({(tot_total * self.sampleclock_period_ns)/1000.0} us)"
-            )
-            # hits are sored in dictionary form
-            # Look into dataframe
-            hits = {
-                'readout': i,
-                'Chip ID': id,
-                'payload': payload,
-                'location': location,
-                'isCol': (True if col else False),
-                'timestamp': timestamp,
-                'tot_msb': tot_msb,
-                'tot_lsb': tot_lsb,
-                'tot_total': tot_total,
-                'tot_us': ((tot_total * self.sampleclock_period_ns)/1000.0),
-                'hittime': time.time()
-                }
-            hit_list.append(hits)
-
-        # Much simpler to convert to df in the return statement vs df.concat
-        return pd.DataFrame(hit_list)
+        return df
 
     # To be called when initalizing the asic, clears the FPGAs memory 
     def dump_fpga(self):
