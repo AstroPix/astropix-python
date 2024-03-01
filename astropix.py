@@ -216,7 +216,7 @@ class astropixRun:
         """
 
         self.nexys.spi_enable()
-        self.nexys.spi_reset()
+        self.nexys.spi_reset_fpga_readout()
         # Set SPI clockdivider
         # freq = 100 MHz/spi_clkdiv
         self.nexys.spi_clkdiv = 255
@@ -457,7 +457,7 @@ class astropixRun:
         try:    # Attempts to write to and read from a register
             self.nexys.write_register(0x09, 0x55, True)
             self.nexys.read_register(0x09)
-            self.nexys.spi_reset()
+            self.nexys.spi_reset_fpga_readout()
             self.nexys.sr_readback_reset()
         except Exception: 
             raise RuntimeError("Could not read or write from astropix!")
