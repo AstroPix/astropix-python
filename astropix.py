@@ -19,7 +19,7 @@ from tqdm import tqdm
 import pandas as pd
 import time
 import yaml
-import os, sys
+import os
 
 # Logging stuff
 import logging
@@ -96,7 +96,7 @@ class astropixRun:
 
             except yaml.YAMLError as exc:
                 logger.error(exc)
-                sys.exit(1)
+                raise
         
 
 ##################### ASIC METHODS FOR USERS #########################
@@ -128,10 +128,10 @@ class astropixRun:
             self.asic.load_conf_from_yaml(self.chipversion, ymlpath)
         except Exception:
             logger.error('Must pass a configuration file in the form of *.yml - check the path/file name')
-            sys.exit(1)
-        #Config stored in dictionary self.asic_config . This is used for configuration in asic_update. 
+            raise
+        #Chip config stored in dictionary self.asic_config . This is used for configuration in asic_update. 
         #If any changes are made, make change to self.asic_config so that it is reflected on-chip when 
-        # asic_update is called
+        # asic_update is called. Similarly with card config for GECCO cards
 
         #Sort DAC settings to idac vs vdac
         idac_setup, vdac_setup = None, None
@@ -237,9 +237,9 @@ class astropixRun:
 ################## Voltageboard Methods ############################
 
 # Here we intitalize the 8 DAC voltageboard in slot 4. 
-    def init_voltages(self, slot: int = 4, vcal:float = .989, vsupply: float = 2.7, vthreshold:float = None, dacvals: tuple[int, list[float]] = None):
+    def init_voltages(self, vcal:float = .989, vsupply: float = 2.7, vthreshold:float = None, dacvals: tuple[int, list[float]] = None):
         """
-        Configures the voltage board
+        Configures voltage board
         No required parameters. No return.
 
         slot:int = 4 - Position of voltage board
@@ -248,18 +248,18 @@ class astropixRun:
         vthreshold:float = None - ToT threshold value. Takes precedence over dacvals if set. UNITS: mV
         dacvals:tuple[int, list[float] - vboard dac settings. Must be fully specified if set. 
         """
-        # The default values to pass to the voltage dac. Last value in list is threshold voltage, default 100mV or 1.1
-        # Included in YAML for v3 (not v2)
 
-        # From nicholas's beam_test.py:
-        # 1=thpmos (comparator threshold voltage), 3 = Vcasc2, 4=BL, 7=Vminuspix, 8=Thpix 
-        if self.chipversion == 2:
-            default_vdac = (8, [0, 0, 1.1, 1, 0, 0, 1, 1.100])
-        else: #increase thpmos for v3 pmos pixels
-            default_vdac = (8, [1.1, 0, 1.1, 1, 0, 0, 1, 1.100])
-
-        # used to ensure this has been called in the right order:
-        self._voltages_exist = True
+        # Pull relevant quantities from yml config
+        try:
+            volt_slot = self.asic.asic_configcards['voltagecard']['pos']
+            default_vdac = (len(self.asic.asic_configcards['voltagecard']['dacs']), self.asic.asic_configcards['voltagecard']['dacs'])
+        except KeyError: #values not included in yml
+            volt_slot = 4
+            # 1=thpmos (comparator threshold voltage), 3 = Vcasc2, 4=BL, 7=Vminuspix, 8=Thpix 
+            if self.chipversion == 2:
+                default_vdac = (8, [0, 0, 1.1, 1, 0, 0, 1, 1.100])
+            else: #increase thpmos for v3 pmos pixels
+                default_vdac = (8, [1.1, 0, 1.1, 1, 0, 0, 1, 1.100])
 
         # Set dacvals
         if dacvals is None:
@@ -274,8 +274,9 @@ class astropixRun:
                         vthreshold = 1.100
                         logger.error("Threshold value too low, setting to default 100mV")
                 dacvals[1][-1] = vthreshold
+
         # Create object
-        self.vboard = Voltageboard(self.handle, slot, dacvals)
+        self.vboard = Voltageboard(self.handle, volt_slot, dacvals)
         # Set calibrated values
         self.vboard.vcal = vcal
         self.vboard.vsupply = vsupply
@@ -283,12 +284,11 @@ class astropixRun:
         self.vboard.update_vb()
 
     # Setup Injections
-    def init_injection(self, slot: int = 3, inj_voltage:float = None, inj_period:int = 100, clkdiv:int = 300, initdelay: int = 100, cycle: float = 0, pulseperset: int = 1, dac_config:tuple[int, list[float]] = None, onchip: bool = False):
+    def init_injection(self, inj_voltage:float = None, inj_period:int = 100, clkdiv:int = 300, initdelay: int = 100, cycle: float = 0, pulseperset: int = 1, dac_config:tuple[int, list[float]] = None, onchip: bool = False):
         """
         Configure injections
         No required arguments. No returns.
         Optional Arguments:
-        slot: int - Location of the injection module
         inj_voltage: float - Injection Voltage. Range from 0 to 1.8. If dac_config is set inj_voltage will be overwritten
         inj_period: int
         clkdiv: int
@@ -297,14 +297,12 @@ class astropixRun:
         pulseperset: int
         dac_config:tuple[int, list[float]]: injdac settings. Must be fully specified if set. 
         """
-        
-        """
-        # Some fault tolerance
+
+        # Pull relevant quantities from yml config
         try:
-            self._voltages_exist
-        except Exception:
-            raise RuntimeError("init_voltages must be called before init_injection!")
-        """
+            inj_slot = self.asic.asic_configcards['injectioncard']['pos']
+        except KeyError: #values not included in yml
+            inj_slot = 3
 
         # Fault tolerance 
         if (inj_voltage is not None) and (dac_config is None):
@@ -317,7 +315,7 @@ class astropixRun:
             self.asic.set_internal_vdac('vinj', inj_voltage/1000.)
 
         # Create injector object
-        self.injector = Injectionboard(self.handle, self.asic, pos=3, onchip=onchip)
+        self.injector = Injectionboard(self.handle, self.asic, pos=inj_slot, onchip=onchip)
 
         if not onchip: #set voltageboard values if using GECCO card
             self.injector.vcal = self.vboard.vcal

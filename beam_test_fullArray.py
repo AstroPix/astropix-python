@@ -199,7 +199,7 @@ if __name__ == "__main__":
                     help = 'Turn on analog output in the given column. Default: Column 0.')
 
     parser.add_argument('-t', '--threshold', type = float, action='store', default=None,
-                    help = 'Threshold voltage for digital ToT (in mV). DEFAULT 100mV')
+                    help = 'Threshold voltage for digital ToT (in mV). DEFAULT value in yml OR 100mV if voltagecard not in yml')
     
     parser.add_argument('-E', '--errormax', action='store', type=int, default='100', 
                     help='Maximum index errors allowed during decoding. DEFAULT 100')
