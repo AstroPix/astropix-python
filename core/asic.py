@@ -42,6 +42,8 @@ class Asic(Nexysio):
 
         self._chipname = ""
 
+        self._sampleclockperiod = 5
+
     @property
     def chipname(self):
         """Get/set chipname
@@ -109,6 +111,18 @@ class Asic(Nexysio):
     @num_chips.setter
     def num_chips(self, chips):
         self._num_chips = chips
+
+    @property
+    def sampleclockperiod(self):
+        """Get/set sample clock period in ns
+
+        :returns: Sample clock period in ns
+        """
+        return self._sampleclockperiod
+
+    @sampleclockperiod.setter
+    def sampleclockperiod(self, period):
+        self._sampleclockperiod = period
 
 
     def enable_ampout_col(self, col: int, inplace:bool=True):
@@ -231,16 +245,22 @@ class Asic(Nexysio):
         # Get Telescope settings
         try:
             self.num_chips = dict_from_yml[self.chip].get('telescope')['nchips']
-
             logger.info("%s%d Telescope setup with %d chips found!", chipname, chipversion, self.num_chips)
         except (KeyError, TypeError):
             logger.warning("%s%d Telescope config not found!", chipname, chipversion)
+
+        # Get sample clock
+        try:
+            self.sampleclockperiod = dict_from_yml[self.chip].get('general')['sampleclockperiod_ns'] 
+            logger.info("%s%d Sample clock setup with %d ns period found!", chipname, chipversion, self.sampleclockperiod)
+        except (KeyError, TypeError):
+            self.sampleclockperiod = self._sampleclockperiod
+            logger.warning("%s%d Sample clock config not found in yml, using default 5 ns", chipname, chipversion)
 
         # Get chip geometry
         try:
             self.num_cols = dict_from_yml[self.chip].get('geometry')['cols']
             self.num_rows = dict_from_yml[self.chip].get('geometry')['rows']
-
             logger.info("%s%d matrix dimensions found!", chipname, chipversion)
         except KeyError:
             logger.error("%s%d matrix dimensions not found! Does the chip version (-V) match that in the yml file?", chipname, chipversion)

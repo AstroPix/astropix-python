@@ -14,11 +14,17 @@
 #
 ---
 astropix3:
-    telescope:
-        nchips: 1
+    general:
+        sampleclockperiod_ns: 5
     geometry:
         cols: 35
         rows: 35
+    configcards:
+        voltagecard:
+            pos: 4
+            dacs: [1.2, 0, 1.1, 1, 0, 0, 0.7, 1.2]
+        injectioncard:
+            pos: 3
     config:
         digitalconfig:
             interrupt_pushpull: [1, 0b1]
@@ -35,7 +41,7 @@ astropix3:
             qon3:               [1, 0b1]
 
         idacs:
-            blres:              [6, 0]
+            blres:              [6, 1]
             nu1:                [6, 0]
             vn1:                [6, 20]
             vnfb:               [6, 1]
@@ -45,14 +51,14 @@ astropix3:
             nu7:                [6, 0]
             nu8:                [6, 0]
             vn2:                [6, 0]
-            vnfoll2:            [6, 1]
+            vnfoll2:            [6, 2]
             vnbias:             [6, 10]
             vpload:             [6, 5]
             nu13:               [6, 60]
             vncomp:             [6, 2]
             vpfoll:             [6, 60]
             nu16:               [6, 0]
-            vprec:              [6, 60]
+            vprec:              [6, 30]
             vnrec:              [6, 30]
 
         vdacs:
@@ -61,7 +67,7 @@ astropix3:
             vcasc2:             [10, 625]
             nu1:                [10, 512]
             thpmos:             [10, 682]
-            vinj:               [10, 0]
+            vinj:               [10, 171]
 
         recconfig:
             col0:               [38, 0b001_11111_11111_11111_11111_11111_11111_11110]

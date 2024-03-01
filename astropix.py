@@ -413,7 +413,7 @@ class astropixRun:
         return readout
 
 
-    def decode_readout(self, readout:bytearray, i:int, clock_period_ns:int =5, printer: bool = True):
+    def decode_readout(self, readout:bytearray, i:int, printer: bool = True):
         """
         Decodes readout
 
@@ -422,13 +422,12 @@ class astropixRun:
         i: int - Readout number
 
         Optional:
-        clock_period_ns:int - period of main clock in ns
         printer: bool - Print decoded output to terminal
 
         Returns dataframe
         """
         # Creates object
-        self.decode = Decode(clock_period_ns, nchips=self.asic.num_chips)
+        self.decode = Decode(self.asic.sampleclockperiod, nchips=self.asic.num_chips)
 
         list_hits = self.decode.hits_from_readoutstream(readout)
         df=self.decode.decode_astropix3_hits(list_hits, i, printer)
