@@ -103,7 +103,7 @@ class astropixRun:
 
     # Method to initalize the asic. This is taking the place of asic.py. 
     # All of the interfacing is handeled through asic_update
-    def asic_init(self, yaml:str = None, dac_setup: dict = None, bias_setup:dict = None, blankmask:bool = False, analog_col:int = None):
+    def asic_init(self, yaml:str = None, dac_setup: dict = None, bias_setup:dict = None, analog_col:int = None):
         """
         self.asic_init() - initalize the asic configuration. Must be called first
         Positional arguments: None
@@ -242,7 +242,6 @@ class astropixRun:
         Configures voltage board
         No required parameters. No return.
 
-        slot:int = 4 - Position of voltage board
         vcal:float = 0.908 - Calibration of the voltage rails
         vsupply = 2.7 - Supply Voltage
         vthreshold:float = None - ToT threshold value. Takes precedence over dacvals if set. UNITS: mV
@@ -284,18 +283,17 @@ class astropixRun:
         self.vboard.update_vb()
 
     # Setup Injections
-    def init_injection(self, inj_voltage:float = None, inj_period:int = 100, clkdiv:int = 300, initdelay: int = 100, cycle: float = 0, pulseperset: int = 1, dac_config:tuple[int, list[float]] = None, onchip: bool = False):
+    def init_injection(self, inj_voltage:float = None, inj_period:int = 100, clkdiv:int = 300, initdelay: int = 100, cycle: float = 0, pulseperset: int = 1, onchip: bool = False):
         """
         Configure injections
         No required arguments. No returns.
         Optional Arguments:
-        inj_voltage: float - Injection Voltage. Range from 0 to 1.8. If dac_config is set inj_voltage will be overwritten
+        inj_voltage: float - Injection Voltage. Range from 0 to 1.8.
         inj_period: int
         clkdiv: int
         initdelay: int
         cycle: float
         pulseperset: int
-        dac_config:tuple[int, list[float]]: injdac settings. Must be fully specified if set. 
         """
 
         # Pull relevant quantities from yml config
@@ -305,7 +303,7 @@ class astropixRun:
             inj_slot = 3
 
         # Fault tolerance 
-        if (inj_voltage is not None) and (dac_config is None):
+        if inj_voltage is not None:
             # elifs check to ensure we are not injecting a negative value because we don't have that ability
             if inj_voltage < 0:
                 raise ValueError("Cannot inject a negative voltage!")
