@@ -36,6 +36,7 @@ class Asic(Nexysio):
         self._num_rows = 35
         self._num_cols = 35
 
+        self.asic_configcards = {}
         self.asic_config = {}
 
         self._num_chips = 1
@@ -265,6 +266,13 @@ class Asic(Nexysio):
         except KeyError:
             logger.error("%s%d matrix dimensions not found! Does the chip version (-V) match that in the yml file?", chipname, chipversion)
             raise
+
+        # Get GECCO card configs
+        try:
+            self.asic_configcards = dict_from_yml.get(self.chip)['configcards']
+            logger.info("%s%d configcards found!", chipname, chipversion)
+        except KeyError:
+            logger.warning("%s%d configcards not found! Default values will be used", chipname, chipversion)
 
         # Get chip configs
         if self.num_chips > 1:
