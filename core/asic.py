@@ -201,11 +201,12 @@ class Asic(Nexysio):
         :param vdd: Supply voltage VDDA
         :param nbits: VDAC resolution
         """
+        
         if dac in self.asic_config['vdacs'] and 0 <= voltage <= 1.8:
             #dacval = voltage * vdda / 2**nbits
             dacval = voltage / vdda * 2**nbits
             self.asic_config['vdacs'][dac][1] = int(dacval)
-            logger.info('Set internal vdac: %s to %d V (dacval: %d)', dac, voltage, dacval)
+            logger.info('Set internal vdac: %s to %f V (dacval: %d)', dac, voltage, dacval)
         else:
             logger.warning('Can not set internal vdac: %s to %d V!', dac, voltage)
 
