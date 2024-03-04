@@ -65,6 +65,7 @@ class astropixRun:
             self.injection_row = inject[0]
 
         self.chipversion = chipversion
+        self.vcard_vdac = []
 
 ##################### YAML INTERACTIONS #########################
 #reading done in core/asic.py
@@ -274,6 +275,8 @@ class astropixRun:
                         logger.error("Threshold value too low, setting to default 100mV")
                 dacvals[1][-1] = vthreshold
 
+        self.vcard_vdac = default_vdac[1]
+
         # Create object
         self.vboard = Voltageboard(self.handle, volt_slot, dacvals)
         # Set calibrated values
@@ -363,7 +366,10 @@ class astropixRun:
         Returns header for use in a log file with all settings.
         """
         #Get config dictionaries from yaml
-        vdac_str=""
+        vdacs=['thpmos', 'cardConf2','vcasc2', 'BL', 'cardConf5', 'cardConf6','vminuspix','thpix']
+        vcardconfig = {}
+        for i,v in enumerate(vdacs):
+            vcardconfig[v] = self.vcard_vdac[i]
         digitalconfig = {}
         for key in self.asic.asic_config['digitalconfig']:
                 digitalconfig[key]=self.asic.asic_config['digitalconfig'][key][1]
@@ -377,13 +383,12 @@ class astropixRun:
             vdacconfig = {}
             for key in self.asic.asic_config['vdacs']:
                     vdacconfig[key]=self.asic.asic_config['vdacs'][key][1]
-            vdac_str=f"vDAC: {vdacconfig}\n"
         arrayconfig = {}
         for key in self.asic.asic_config['recconfig']:
                 arrayconfig[key]=self.asic.asic_config['recconfig'][key][1]
 
         # This is not a nice line, but its the most efficent way to get all the values in the same place.
-        return f"Digital: {digitalconfig}\n" +f"Biasblock: {biasconfig}\n" + f"iDAC: {idacconfig}\n"+ f"Receiver: {arrayconfig}\n " + vdac_str
+        return f"Voltagecard: {vcardconfig}\n" + f"Digital: {digitalconfig}\n" +f"Biasblock: {biasconfig}\n" + f"iDAC: {idacconfig}\n"+ f"vDAC: {vdacconfig}\n"+ f"Receiver: {arrayconfig}\n "
 
 
 
