@@ -184,7 +184,7 @@ def main(args):
         logger.exception(f"Encountered Unexpected Exception! \n{e}")
     finally:
         if args.saveascsv: 
-            csvframe.index.name = "dec_order"
+            csvframe.index.name = "dec_ord"
             csvframe.to_csv(csvpath) 
         if args.inject is not None: astro.stop_injection()   
         bitfile.close() # Close open file        
