@@ -278,5 +278,5 @@ if __name__ == "__main__":
     #If using v2, use injection created by injection card
     #If using v3, use injection created with integrated DACs on chip
     onchipBool = True if args.chipVer > 2 else False
-    
+
     main(args)
