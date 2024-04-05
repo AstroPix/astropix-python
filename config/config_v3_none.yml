@@ -1,6 +1,6 @@
-# Example Astropix2 config
+ # Example Astropix3 config
 #
-# The following yaml should comply to the following structure.
+# The following yaml should comply to the structure below.
 # It is important, that the order of configbits under the config section, corresponds to the actual order in the chip
 #
 # astropix<version>:
@@ -13,16 +13,18 @@
 #   ...
 #
 ---
-astropix2:
+astropix3:
+    telescope:
+        nchips: 1
     geometry:
         cols: 35
         rows: 35
     config:
         digitalconfig:
             interrupt_pushpull: [1, 0b1]
-            en_inj:             [19, 0b0]
+            en_inj:             [18, 0b0]
             reset:              [1, 0b0]
-            extrabits:          [14, 0b0]
+            extrabits:          [15, 0b0]
 
         biasconfig:
             DisHiDR:            [1, 0b0]
@@ -37,24 +39,32 @@ astropix2:
             nu1:                [6, 0]
             vn1:                [6, 20]
             vnfb:               [6, 3]
-            vnfoll:             [6, 10]
+            vnfoll:             [6, 1]
             nu5:                [6, 0]
             nu6:                [6, 0]
             nu7:                [6, 0]
             nu8:                [6, 0]
             vn2:                [6, 0]
-            vnfoll2:            [6, 4]
-            vnbias:             [6, 0]
+            vnfoll2:            [6, 10]
+            vnbias:             [6, 10]
             vpload:             [6, 5]
-            nu13:               [6, 0]
+            nu13:               [6, 60]
             vncomp:             [6, 2]
             vpfoll:             [6, 60]
             nu16:               [6, 0]
             vprec:              [6, 60]
             vnrec:              [6, 30]
 
+        vdacs:
+            blpix:              [10, 568]
+            thpix:              [10, 682]
+            vcasc2:             [10, 625]
+            nu1:                [10, 512]
+            thpmos:             [10, 682]
+            vinj:               [10, 171] 
+
         recconfig:
-            col0:               [38, 0b001_11111_11111_11111_11111_11111_11111_11010]
+            col0:               [38, 0b001_11111_11111_11111_11111_11111_11111_11110]
             col1:               [38, 0b001_11111_11111_11111_11111_11111_11111_11110]
             col2:               [38, 0b001_11111_11111_11111_11111_11111_11111_11110]
             col3:               [38, 0b001_11111_11111_11111_11111_11111_11111_11110]
