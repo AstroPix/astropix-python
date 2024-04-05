@@ -45,6 +45,7 @@ def main(args):
 
     #Enable final configuration
     astro.enable_spi() 
+    astro.asic_configure()
     logger.info("Chip configured")
     astro.dump_fpga()
 
@@ -191,14 +192,14 @@ if __name__ == "__main__":
     parser.add_argument('-i', '--inject', action='store', default=None, type=int, nargs=2,
                     help =  'Turn on injection in the given row and column. Default: No injection')
 
-    parser.add_argument('-v','--vinj', action='store', default = 300, type=float,
-                    help = 'Specify injection voltage (in mV). DEFAULT 300 mV')
+    parser.add_argument('-v','--vinj', action='store', default = None, type=float,
+                    help = 'Specify injection voltage (in mV). DEFAULT None (uses value in yml)')
 
     parser.add_argument('-a', '--analog', action='store', required=False, type=int, default = 0,
                     help = 'Turn on analog output in the given column. Default: Column 0.')
 
     parser.add_argument('-t', '--threshold', type = float, action='store', default=None,
-                    help = 'Threshold voltage for digital ToT (in mV). DEFAULT 100mV')
+                    help = 'Threshold voltage for digital ToT (in mV). DEFAULT value in yml OR 100mV if voltagecard not in yml')
     
     parser.add_argument('-E', '--errormax', action='store', type=int, default='100', 
                     help='Maximum index errors allowed during decoding. DEFAULT 100')

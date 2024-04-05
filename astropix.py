@@ -19,7 +19,7 @@ from tqdm import tqdm
 import pandas as pd
 import time
 import yaml
-import os, sys
+import os
 
 # Logging stuff
 import logging
@@ -31,12 +31,11 @@ class astropixRun:
     # Init just opens the chip and gets the handle. After this runs
     # asic_config also needs to be called to set it up. Seperating these 
     # allows for simpler specifying of values. 
-    def __init__(self, chipversion=2, clock_period_ns = 5, inject:int = None, offline:bool=False):
+    def __init__(self, chipversion=2, inject:int = None, offline:bool=False):
         """
         Initalizes astropix object. 
         No required arguments
         Optional:
-        clock_period_ns:int - period of main clock in ns
         inject:bool - if set to True will enable injection for the whole array.
         offline:bool - if True, do not try to interface with chip
         """
@@ -65,10 +64,8 @@ class astropixRun:
             self.injection_col = inject[1]
             self.injection_row = inject[0]
 
-        self.sampleclock_period_ns = clock_period_ns
         self.chipversion = chipversion
-        # Creates objects used later on
-        self.decode = Decode(clock_period_ns)
+        self.vcard_vdac = []
 
 ##################### YAML INTERACTIONS #########################
 #reading done in core/asic.py
@@ -100,14 +97,14 @@ class astropixRun:
 
             except yaml.YAMLError as exc:
                 logger.error(exc)
-                sys.exit(1)
+                raise
         
 
 ##################### ASIC METHODS FOR USERS #########################
 
     # Method to initalize the asic. This is taking the place of asic.py. 
     # All of the interfacing is handeled through asic_update
-    def asic_init(self, yaml:str = None, dac_setup: dict = None, bias_setup:dict = None, blankmask:bool = False, analog_col:int = None):
+    def asic_init(self, yaml:str = None, dac_setup: dict = None, bias_setup:dict = None, analog_col:int = None):
         """
         self.asic_init() - initalize the asic configuration. Must be called first
         Positional arguments: None
@@ -132,10 +129,10 @@ class astropixRun:
             self.asic.load_conf_from_yaml(self.chipversion, ymlpath)
         except Exception:
             logger.error('Must pass a configuration file in the form of *.yml - check the path/file name')
-            sys.exit(1)
-        #Config stored in dictionary self.asic_config . This is used for configuration in asic_update. 
+            raise
+        #Chip config stored in dictionary self.asic_config . This is used for configuration in asic_update. 
         #If any changes are made, make change to self.asic_config so that it is reflected on-chip when 
-        # asic_update is called
+        # asic_update is called. Similarly with card config for GECCO cards
 
         #Sort DAC settings to idac vs vdac
         idac_setup, vdac_setup = None, None
@@ -159,8 +156,8 @@ class astropixRun:
 
         # Turns on injection if so desired 
         if self.injection_col is not None:
-            self.asic.enable_inj_col(self.injection_col, inplace=False)
-            self.asic.enable_inj_row(self.injection_row, inplace=False)
+            self.asic.set_inj_col(self.injection_col, True)
+            self.asic.set_inj_row(self.injection_row, True)
 
         # Load config it to the chip
         logger.info("LOADING TO ASIC...")
@@ -168,13 +165,16 @@ class astropixRun:
         logger.info("ASIC SUCCESSFULLY CONFIGURED")
 
     #Interface with asic.py 
-    def enable_pixel(self, col: int, row: int, inplace:bool=True):
-       self.asic.enable_pixel(col, row, inplace)
+    def enable_pixel(self, col: int, row: int):
+       self.asic.set_pixel_comparator(col, row, True)
+
+    def disable_pixel(self, col: int, row: int):
+       self.asic.set_pixel_comparator(col, row, False)
 
     #Turn on injection of different pixel than the one used in _init_
-    def enable_injection(self, col:int, row:int, inplace:bool=True):
-        self.asic.enable_inj_col(col, inplace)
-        self.asic.enable_inj_row(row, inplace)
+    def enable_injection(self, col:int, row:int):
+        self.asic.set_inj_col(col, True)
+        self.asic.set_inj_row(row, True)
 
     # The method to write data to the asic. Called whenever somthing is changed
     # or after a group of changes are done. Taken straight from asic.py.
@@ -217,12 +217,15 @@ class astropixRun:
         """
 
         self.nexys.spi_enable()
-        self.nexys.spi_reset()
+        self.nexys.spi_reset_fpga_readout()
         # Set SPI clockdivider
         # freq = 100 MHz/spi_clkdiv
         self.nexys.spi_clkdiv = 255
         self.nexys.send_routing_cmd()
         logger.info("SPI ENABLED")
+
+    def asic_configure(self):
+        self.asic_update()
 
     def close_connection(self):
         """
@@ -235,29 +238,28 @@ class astropixRun:
 ################## Voltageboard Methods ############################
 
 # Here we intitalize the 8 DAC voltageboard in slot 4. 
-    def init_voltages(self, slot: int = 4, vcal:float = .989, vsupply: float = 2.7, vthreshold:float = None, dacvals: tuple[int, list[float]] = None):
+    def init_voltages(self, vcal:float = .989, vsupply: float = 2.7, vthreshold:float = None, dacvals: tuple[int, list[float]] = None):
         """
-        Configures the voltage board
+        Configures voltage board
         No required parameters. No return.
 
-        slot:int = 4 - Position of voltage board
         vcal:float = 0.908 - Calibration of the voltage rails
         vsupply = 2.7 - Supply Voltage
         vthreshold:float = None - ToT threshold value. Takes precedence over dacvals if set. UNITS: mV
         dacvals:tuple[int, list[float] - vboard dac settings. Must be fully specified if set. 
         """
-        # The default values to pass to the voltage dac. Last value in list is threshold voltage, default 100mV or 1.1
-        # Included in YAML for v3 (not v2)
 
-        # From nicholas's beam_test.py:
-        # 1=thpmos (comparator threshold voltage), 3 = Vcasc2, 4=BL, 7=Vminuspix, 8=Thpix 
-        if self.chipversion == 2:
-            default_vdac = (8, [0, 0, 1.1, 1, 0, 0, 1, 1.100])
-        else: #increase thpmos for v3 pmos pixels
-            default_vdac = (8, [1.1, 0, 1.1, 1, 0, 0, 1, 1.100])
-
-        # used to ensure this has been called in the right order:
-        self._voltages_exist = True
+        # Pull relevant quantities from yml config
+        try:
+            volt_slot = self.asic.asic_configcards['voltagecard']['pos']
+            default_vdac = (len(self.asic.asic_configcards['voltagecard']['dacs']), self.asic.asic_configcards['voltagecard']['dacs'])
+        except KeyError: #values not included in yml
+            volt_slot = 4
+            # 1=thpmos (comparator threshold voltage), 3 = Vcasc2, 4=BL, 7=Vminuspix, 8=Thpix 
+            if self.chipversion == 2:
+                default_vdac = (8, [0, 0, 1.1, 1, 0, 0, 1, 1.100])
+            else: #increase thpmos for v3 pmos pixels
+                default_vdac = (8, [1.1, 0, 1.1, 1, 0, 0, 1, 1.100])
 
         # Set dacvals
         if dacvals is None:
@@ -272,8 +274,11 @@ class astropixRun:
                         vthreshold = 1.100
                         logger.error("Threshold value too low, setting to default 100mV")
                 dacvals[1][-1] = vthreshold
+
+        self.vcard_vdac = default_vdac[1]
+
         # Create object
-        self.vboard = Voltageboard(self.handle, slot, dacvals)
+        self.vboard = Voltageboard(self.handle, volt_slot, dacvals)
         # Set calibrated values
         self.vboard.vcal = vcal
         self.vboard.vsupply = vsupply
@@ -281,64 +286,44 @@ class astropixRun:
         self.vboard.update_vb()
 
     # Setup Injections
-    def init_injection(self, slot: int = 3, inj_voltage:float = None, inj_period:int = 100, clkdiv:int = 300, initdelay: int = 100, cycle: float = 0, pulseperset: int = 1, dac_config:tuple[int, list[float]] = None, onchip: bool = False):
+    def init_injection(self, inj_voltage:float = None, inj_period:int = 100, clkdiv:int = 300, initdelay: int = 100, cycle: float = 0, pulseperset: int = 1, onchip: bool = False):
         """
         Configure injections
         No required arguments. No returns.
         Optional Arguments:
-        slot: int - Location of the injection module
-        inj_voltage: float - Injection Voltage. Range from 0 to 1.8. If dac_config is set inj_voltage will be overwritten
+        inj_voltage: float - Injection Voltage. Range from 0 to 1.8.
         inj_period: int
         clkdiv: int
         initdelay: int
         cycle: float
         pulseperset: int
-        dac_config:tuple[int, list[float]]: injdac settings. Must be fully specified if set. 
         """
-        
-        # Some fault tolerance
-        try:
-            self._voltages_exist
-        except Exception:
-            raise RuntimeError("init_voltages must be called before init_injection!")
 
-        # The dac_config takes presedence over a specified threshold.
+        # Pull relevant quantities from yml config
+        try:
+            inj_slot = self.asic.asic_configcards['injectioncard']['pos']
+        except KeyError: #values not included in yml
+            inj_slot = 3
+
         # Fault tolerance 
-        if (inj_voltage is not None) and (dac_config is None):
+        if inj_voltage is not None:
             # elifs check to ensure we are not injecting a negative value because we don't have that ability
             if inj_voltage < 0:
                 raise ValueError("Cannot inject a negative voltage!")
             elif inj_voltage > 1800:
                 logger.warning("Cannot inject more than 1800mV, will use defaults")
                 inj_voltage = 300 #Sets to 300 mV
+            self.asic.set_internal_vdac('vinj', inj_voltage/1000.)
 
         # Create injector object
-        self.injector = Injectionboard(self.handle, onchip=onchip)
+        self.injector = Injectionboard(self.handle, self.asic, pos=inj_slot, onchip=onchip)
 
-        if onchip:
-            if inj_voltage:
-                #Update vdac value from yml (v3)
-                vinj_vdac = inj_voltage / 1.8 * 1023. / 1000. #convert inj_voltage in mV to V
-                self.update_asic_config(vdac_cfg={'vinj':int(vinj_vdac)})
-        else:
-            # Default configuration for the dac
-            # 0.3 is (default) injection voltage
-            default_injdac = (8,[0.3, 0.0])
-            # Sets the dac_setup if it isn't specified
-            if dac_config is None:
-                dac_settings = default_injdac
-            else:
-                dac_settings = dac_config
-            dac_settings[1][0] = inj_voltage / 1000. #convert mV input to V
-
-            # Create the object - updates injector card on GECCO board
-            self.inj_volts = Voltageboard(self.handle, slot, dac_settings)
-            # set the parameters
-            self.inj_volts.vcal = self.vboard.vcal
-            self.inj_volts.vsupply = self.vboard.vsupply
-            self.inj_volts.update_vb()
-        
-        # Now to configure it. above are the values from the original scripting.
+        if not onchip: #set voltageboard values if using GECCO card
+            self.injector.vcal = self.vboard.vcal
+            self.injector.vsupply = self.vboard.vsupply
+            self.injector.amplitude = inj_voltage / 1000. #convert mV to V
+            
+        # Configure injector object
         self.injector.period = inj_period
         self.injector.clkdiv = clkdiv
         self.injector.initdelay = initdelay
@@ -381,7 +366,10 @@ class astropixRun:
         Returns header for use in a log file with all settings.
         """
         #Get config dictionaries from yaml
-        vdac_str=""
+        vdacs=['thpmos', 'cardConf2','vcasc2', 'BL', 'cardConf5', 'cardConf6','vminuspix','thpix']
+        vcardconfig = {}
+        for i,v in enumerate(vdacs):
+            vcardconfig[v] = self.vcard_vdac[i]
         digitalconfig = {}
         for key in self.asic.asic_config['digitalconfig']:
                 digitalconfig[key]=self.asic.asic_config['digitalconfig'][key][1]
@@ -395,13 +383,12 @@ class astropixRun:
             vdacconfig = {}
             for key in self.asic.asic_config['vdacs']:
                     vdacconfig[key]=self.asic.asic_config['vdacs'][key][1]
-            vdac_str=f"vDAC: {vdacconfig}\n"
         arrayconfig = {}
         for key in self.asic.asic_config['recconfig']:
                 arrayconfig[key]=self.asic.asic_config['recconfig'][key][1]
 
         # This is not a nice line, but its the most efficent way to get all the values in the same place.
-        return f"Digital: {digitalconfig}\n" +f"Biasblock: {biasconfig}\n" + f"iDAC: {idacconfig}\n"+ f"Receiver: {arrayconfig}\n " + vdac_str
+        return f"Voltagecard: {vcardconfig}\n" + f"Digital: {digitalconfig}\n" +f"Biasblock: {biasconfig}\n" + f"iDAC: {idacconfig}\n"+ f"vDAC: {vdacconfig}\n"+ f"Receiver: {arrayconfig}\n "
 
 
 
@@ -440,56 +427,13 @@ class astropixRun:
 
         Returns dataframe
         """
+        # Creates object
+        self.decode = Decode(self.asic.sampleclockperiod, nchips=self.asic.num_chips)
 
         list_hits = self.decode.hits_from_readoutstream(readout)
-        hit_list = []
-        for hit in list_hits:
-            # Generates the values from the bitstream
-            try:
-                id          = int(hit[0]) >> 3
-                payload     = int(hit[0]) & 0b111
-                location    = int(hit[1])  & 0b111111
-                col         = 1 if (int(hit[1]) >> 7 ) & 1 else 0
-                timestamp   = int(hit[2])
-                tot_msb     = int(hit[3]) & 0b1111
-                tot_lsb     = int(hit[4])   
-                tot_total   = (tot_msb << 8) + tot_lsb
-            except IndexError: #hit cut off at end of stream
-                id, payload, location, col = -1, -1, -1, -1
-                timestamp, tot_msb, tot_lsb, tot_total = -1, -1, -1, -1
+        df=self.decode.decode_astropix3_hits(list_hits, i, printer)
 
-            wrong_id        = 0 if (id) == 0 else '\x1b[0;31;40m{}\x1b[0m'.format(id)
-            wrong_payload   = 4 if (payload) == 4 else'\x1b[0;31;40m{}\x1b[0m'.format(payload)   
-
-                
-            
-            # will give terminal output if desiered
-            if printer:
-                print(
-                f"{i} Header: ChipId: {wrong_id}\tPayload: {wrong_payload}\t"
-                f"Location: {location}\tRow/Col: {'Col' if col else 'Row'}\t"
-                f"Timestamp: {timestamp}\t"
-                f"ToT: MSB: {tot_msb}\tLSB: {tot_lsb} Total: {tot_total} ({(tot_total * self.sampleclock_period_ns)/1000.0} us)"
-            )
-            # hits are sored in dictionary form
-            # Look into dataframe
-            hits = {
-                'readout': i,
-                'Chip ID': id,
-                'payload': payload,
-                'location': location,
-                'isCol': (True if col else False),
-                'timestamp': timestamp,
-                'tot_msb': tot_msb,
-                'tot_lsb': tot_lsb,
-                'tot_total': tot_total,
-                'tot_us': ((tot_total * self.sampleclock_period_ns)/1000.0),
-                'hittime': time.time()
-                }
-            hit_list.append(hits)
-
-        # Much simpler to convert to df in the return statement vs df.concat
-        return pd.DataFrame(hit_list)
+        return df
 
     # To be called when initalizing the asic, clears the FPGAs memory 
     def dump_fpga(self):
@@ -513,7 +457,7 @@ class astropixRun:
         try:    # Attempts to write to and read from a register
             self.nexys.write_register(0x09, 0x55, True)
             self.nexys.read_register(0x09)
-            self.nexys.spi_reset()
+            self.nexys.spi_reset_fpga_readout()
             self.nexys.sr_readback_reset()
         except Exception: 
             raise RuntimeError("Could not read or write from astropix!")
