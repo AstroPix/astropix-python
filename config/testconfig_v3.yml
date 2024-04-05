@@ -16,6 +16,8 @@
 astropix3:
     general:
         sampleclockperiod_ns: 5
+    telescope:
+        nchips: 1
     geometry:
         cols: 35
         rows: 35

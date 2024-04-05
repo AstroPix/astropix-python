@@ -11,7 +11,7 @@ class postProcessing_streams:
     
     def __init__(self,filepath, dec:bool=False):
 
-        beginRead = 1 if dec else 6 #eliminate header if inputting raw data file (.log)
+        beginRead = 1 if dec else 7 #eliminate header if inputting raw data file (.log)
         with open(filepath,"r") as f:
             self.lines = f.readlines()[beginRead:]
     
