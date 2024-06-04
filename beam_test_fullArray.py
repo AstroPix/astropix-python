@@ -111,8 +111,10 @@ def main(args):
                     #Write full stream in hex
                     bitfile.write(f"{i}\t{str(binascii.hexlify(readout))}\n")
                 i+=1
-            if i%1000:
+                logger_bool=True
+            if i%100==0 and logger_bool: #prints out progress every 100 readouts, also prevents multiple prints per readout
                 logger.info(f"{i} readout streams collected")
+                logger_bool=False
 
     # Ends program cleanly when a keyboard interupt is sent.
     except KeyboardInterrupt:

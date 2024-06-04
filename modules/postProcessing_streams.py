@@ -111,7 +111,7 @@ def hit_decoder(li):
                 payload     = int(hit[0]) & 0b111
                 #location    = int(hit[1])  & 0b111111
                 location    = int(hit[1][2:8],2)
-                col         = 1 if (int(hit[1][0])) & True else False
+                col         = 1 if (int(hit[1][0])) & True else 0
                 timestamp   = int(hit[2],2)
                 tot_msb     = int(hit[3],2) & 0b1111
                 tot_lsb     = int(hit[4],2)   
