@@ -102,7 +102,8 @@ def main(args):
             'tstdc1',
             'tstdc2',
             'ts_dec1',
-            'ts_dec2'
+            'ts_dec2',
+            'tot_us'
         ])
     elif args.saveascsv: # Here for csv
         csvpath = args.outdir +'/' + fname + time.strftime("%Y%m%d-%H%M%S") + '.csv'
