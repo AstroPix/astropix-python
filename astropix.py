@@ -442,7 +442,7 @@ class astropixRun:
             self.decode = Decode(self.asic.sampleclockperiod, nchips=self.asic.num_chips)
 
             list_hits = self.decode.hits_from_readoutstream(readout)
-            df=self.decode.decode_astropix3_hits(list_hits)
+            df=self.decode.decode_astropix3_hits(list_hits, i, printer)
 
         return df
 

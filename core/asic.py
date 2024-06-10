@@ -294,21 +294,22 @@ class Asic(Nexysio):
                 raise
 
         # Get chip tdac configs
-        if self.num_chips > 1:
-            for chip_number in range(self.num_chips):
+        if chipversion == 4:
+            if self.num_chips > 1:
+                for chip_number in range(self.num_chips):
+                    try:
+                        self.asic_tdac_config[f'tdac_config_{chip_number}'] = dict_from_yml.get(self.chip)[f'tdac_config_{chip_number}']
+                        logger.info("Telescope chip_%d tdac config found!", chip_number)
+                    except KeyError:
+                        logger.error("Telescope chip_%d tdac config not found!", chip_number)
+                        raise
+            else:
                 try:
-                    self.asic_tdac_config[f'tdac_config_{chip_number}'] = dict_from_yml.get(self.chip)[f'tdac_config_{chip_number}']
-                    logger.info("Telescope chip_%d tdac config found!", chip_number)
+                    self.asic_tdac_config = dict_from_yml.get(self.chip)['tdac_config']
+                    logger.info("%s%d tdac config found!", chipname, chipversion)
                 except KeyError:
-                    logger.error("Telescope chip_%d tdac config not found!", chip_number)
+                    logger.error("%s%d tdac config not found!", chipname, chipversion)
                     raise
-        else:
-            try:
-                self.asic_tdac_config = dict_from_yml.get(self.chip)['tdac_config']
-                logger.info("%s%d tdac config found!", chipname, chipversion)
-            except KeyError:
-                logger.error("%s%d tdac config not found!", chipname, chipversion)
-                raise
 
 
     def gen_asic_vector(self, msbfirst: bool = False) -> BitArray:
