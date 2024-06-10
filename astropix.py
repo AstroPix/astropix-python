@@ -209,6 +209,9 @@ class astropixRun:
             self.asic_update()
         else: raise RuntimeError("Asic has not been initalized")
 
+    def update_asic_tdac_row(self, row: int):
+        self.asic.update_asic_tdacrow(row)
+
     def enable_spi(self):
         """
         Starts spi bus. 
@@ -428,10 +431,10 @@ class astropixRun:
         Returns dataframe
         """
         # Creates object
-        self.decode = Decode(self.asic.sampleclockperiod, nchips=self.asic.num_chips)
+        self.decode = Decode(self.asic.sampleclockperiod, nchips=self.asic.num_chips, bytesperhit=8)
 
         list_hits = self.decode.hits_from_readoutstream(readout)
-        df=self.decode.decode_astropix3_hits(list_hits, i, printer)
+        df=self.decode.decode_astropix4_hits(list_hits)
 
         return df
 

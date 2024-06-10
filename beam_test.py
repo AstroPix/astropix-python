@@ -69,6 +69,7 @@ def main(args):
     #Enable final configuration
     astro.enable_spi() 
     astro.asic_configure()
+    astro.update_asic_tdac_row(0)
     logger.info("Chip configured")
     astro.dump_fpga()
 
