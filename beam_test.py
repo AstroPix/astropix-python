@@ -69,7 +69,8 @@ def main(args):
     #Enable final configuration
     astro.enable_spi() 
     astro.asic_configure()
-    astro.update_asic_tdac_row(0)
+    if args.chipVer==4:
+        astro.update_asic_tdac_row(0)
     logger.info("Chip configured")
     astro.dump_fpga()
 
@@ -85,7 +86,25 @@ def main(args):
     fname="" if not args.name else args.name+"_"
 
     # Prepares the file paths 
-    if args.saveascsv: # Here for csv
+    if args.saveascsv and args.chipVer == 4:
+        csvpath = args.outdir +'/' + fname + time.strftime("%Y%m%d-%H%M%S") + '.csv'
+        csvframe =pd.DataFrame(columns = [
+            'id',
+            'payload',
+            'row',
+            'col',
+            'ts1',
+            'tsfine1',
+            'ts2',
+            'tsfine2',
+            'tsneg1',
+            'tsneg2',
+            'tstdc1',
+            'tstdc2',
+            'ts_dec1',
+            'ts_dec2'
+        ])
+    elif args.saveascsv: # Here for csv
         csvpath = args.outdir +'/' + fname + time.strftime("%Y%m%d-%H%M%S") + '.csv'
         csvframe =pd.DataFrame(columns = [
                 'readout',
@@ -144,7 +163,7 @@ def main(args):
 
                 # Added fault tolerance for decoding, the limits of which are set through arguments
                 try:
-                    hits = astro.decode_readout(readout, i, printer = True)
+                    hits = astro.decode_readout(readout, i, args.chipVer, printer = True)
                 except IndexError:
                     errors += 1
                     logger.warning(f"Decoding failed. Failure {errors} of {max_errors} on readout {i}")

@@ -417,13 +417,14 @@ class astropixRun:
         return readout
 
 
-    def decode_readout(self, readout:bytearray, i:int, printer: bool = True):
+    def decode_readout(self, readout:bytearray, i:int, chip_version, printer: bool = True):
         """
         Decodes readout
 
         Required argument:
         readout: Bytearray - readout from sensor, not the printed Hex values
         i: int - Readout number
+        chip_version: version of the astropix chip
 
         Optional:
         printer: bool - Print decoded output to terminal
@@ -431,10 +432,17 @@ class astropixRun:
         Returns dataframe
         """
         # Creates object
-        self.decode = Decode(self.asic.sampleclockperiod, nchips=self.asic.num_chips, bytesperhit=8)
+        if chip_version == 4:
+            self.decode = Decode(self.asic.sampleclockperiod, nchips=self.asic.num_chips, bytesperhit=8)
 
-        list_hits = self.decode.hits_from_readoutstream(readout)
-        df=self.decode.decode_astropix4_hits(list_hits)
+            list_hits = self.decode.hits_from_readoutstream(readout)
+            df=self.decode.decode_astropix4_hits(list_hits)
+        
+        else: 
+            self.decode = Decode(self.asic.sampleclockperiod, nchips=self.asic.num_chips)
+
+            list_hits = self.decode.hits_from_readoutstream(readout)
+            df=self.decode.decode_astropix3_hits(list_hits)
 
         return df
 
