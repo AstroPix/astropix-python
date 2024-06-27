@@ -48,6 +48,9 @@ class astropixRun:
 
         if offline:
             logger.info("Creating object for offline analysis")
+            self.nexys = Nexysio()
+            self.handle=self.nexys.autoopen()
+            self.asic = Asic(self.handle, self.nexys)
         else:
             self._asic_start = False
             self.nexys = Nexysio()
