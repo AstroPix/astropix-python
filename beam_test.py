@@ -161,42 +161,50 @@ def main(args):
                 bitfile.write(f"{i}\t{str(binascii.hexlify(readout))}\n")
                 bitfile.flush() #make it simulate streaming
                 #print(binascii.hexlify(readout))
+                string_readout=str(binascii.hexlify(readout))[2:-1]
 
-                # Added fault tolerance for decoding, the limits of which are set through arguments
-                try:
-                    hits = astro.decode_readout(readout, i, args.chipVer, printer = True)
-                except IndexError:
-                    errors += 1
-                    logger.warning(f"Decoding failed. Failure {errors} of {max_errors} on readout {i}")
-                    # We write out the failed decode dataframe
-                    hits = decode_fail_frame
-                    hits.readout = i
-                    hits.hittime = time.time()
+                decoding_bool=True
+                string_list=[i for i in string_readout.replace('ff','bc').split('bc') if i!='']
+                for event in string_list:
+                    if event[0:2]!='e0':
+                        decoding_bool=False
 
-                    # This loggs the end of it all 
-                    if errors > max_errors:
-                        logger.warning(f"Decoding failed {errors} times on an index error. Terminating Progam...")
-                finally:
-                    i+=1
-                    # If we are saving a csv this will write it out. 
-                    if args.saveascsv:
-                        csvframe = pd.concat([csvframe, hits])
+                if decoding_bool:
+                    # Added fault tolerance for decoding, the limits of which are set through arguments
+                    try:
+                        hits = astro.decode_readout(readout, i, args.chipVer, printer = True)
+                    except IndexError:
+                        errors += 1
+                        logger.warning(f"Decoding failed. Failure {errors} of {max_errors} on readout {i}")
+                        # We write out the failed decode dataframe
+                        hits = decode_fail_frame
+                        hits.readout = i
+                        hits.hittime = time.time()
 
-                    # This handles the hitplotting. Code by Henrike and Amanda
-                    if args.showhits:
-                        # This ensures we aren't plotting NaN values. I don't know if this would break or not but better 
-                        # safe than sorry
-                        if pd.isnull(hits.tot_msb.loc(0)):
-                            pass
-                        elif len(hits)>0:#safeguard against bad readouts without recorded decodable hits
-                            #Isolate row and column information from array returned from decoder
-                            rows = hits.location[~hits.isCol]
-                            columns = hits.location[hits.isCol]
-                            plotter.plot_event( rows, columns, i)
+                        # This loggs the end of it all 
+                        if errors > max_errors:
+                            logger.warning(f"Decoding failed {errors} times on an index error. Terminating Progam...")
+                    finally:
+                        i+=1
+                        # If we are saving a csv this will write it out. 
+                        if args.saveascsv:
+                            csvframe = pd.concat([csvframe, hits])
 
-                    # If we are logging runtime, this does it!
-                    if args.timeit:
-                        print(f"Read and decode took {(time.time_ns()-start)*10**-9}s")
+                        # This handles the hitplotting. Code by Henrike and Amanda
+                        if args.showhits:
+                            # This ensures we aren't plotting NaN values. I don't know if this would break or not but better 
+                            # safe than sorry
+                            if pd.isnull(hits.tot_msb.loc(0)):
+                                pass
+                            elif len(hits)>0:#safeguard against bad readouts without recorded decodable hits
+                                #Isolate row and column information from array returned from decoder
+                                rows = hits.location[~hits.isCol]
+                                columns = hits.location[hits.isCol]
+                                plotter.plot_event( rows, columns, i)
+
+                        # If we are logging runtime, this does it!
+                        if args.timeit:
+                            print(f"Read and decode took {(time.time_ns()-start)*10**-9}s")
 
     # Ends program cleanly when a keyboard interupt is sent.
     except KeyboardInterrupt:
