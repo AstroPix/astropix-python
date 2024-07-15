@@ -137,7 +137,7 @@ class Decode:
                     "Header: ChipId: %d\tPayload: %d\t"
                     "Location: %d\tRow/Col: %d\t"
                     "Timestamp: %d\t"
-                    "ToT: MSB: %d\tLSB: %d Total: %d (%d us)",
+                    "ToT: MSB: %d\tLSB: %d Total: %d (%f us)",
                     id, payload, location, col, timestamp, tot_msb, tot_lsb, tot_total, tot_us
                     )
 
