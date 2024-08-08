@@ -38,6 +38,7 @@ class Asic(Nexysio):
 
         self.asic_configcards = {}
         self.asic_config = {}
+        self.asic_tdac_config = {}
 
         self._num_chips = 1
 
@@ -292,6 +293,24 @@ class Asic(Nexysio):
                 logger.error("%s%d config not found!", chipname, chipversion)
                 raise
 
+        # Get chip tdac configs
+        if chipversion == 4:
+            if self.num_chips > 1:
+                for chip_number in range(self.num_chips):
+                    try:
+                        self.asic_tdac_config[f'tdac_config_{chip_number}'] = dict_from_yml.get(self.chip)[f'tdac_config_{chip_number}']
+                        logger.info("Telescope chip_%d tdac config found!", chip_number)
+                    except KeyError:
+                        logger.error("Telescope chip_%d tdac config not found!", chip_number)
+                        raise
+            else:
+                try:
+                    self.asic_tdac_config = dict_from_yml.get(self.chip)['tdac_config']
+                    logger.info("%s%d tdac config found!", chipname, chipversion)
+                except KeyError:
+                    logger.error("%s%d tdac config not found!", chipname, chipversion)
+                    raise
+
 
     def gen_asic_vector(self, msbfirst: bool = False) -> BitArray:
         """
@@ -328,7 +347,42 @@ class Asic(Nexysio):
 
         logger.debug(bitvector)
 
-        return bitvector    
+        return bitvector   
+ 
+    def gen_asic_row_vector(self, row: int, msbfirst: bool = False, ) -> BitArray:
+        """Generate asic tdac bitvector
+
+        :param row: Specify row to write tdac config
+        :param msbfirst: Send vector MSB first
+        """
+        bitvector = BitArray()
+
+        if self.num_chips > 1:
+            for chip in range(self.num_chips - 1, -1, -1):
+                bitvector.append(self.__int2nbit(self.asic_tdac_config[f'config_{chip}'][f'row{row}'][1],
+                                                 self.asic_tdac_config[f'config_{chip}'][f'row{row}'][0]))
+
+                if not msbfirst:
+                    bitvector.reverse()
+
+                logger.info("Generated chip_%d tdac config successfully!", chip)
+
+        else:
+            bitvector.append(self.__int2nbit(self.asic_tdac_config[f'row{row}'][1],
+                                             self.asic_tdac_config[f'row{row}'][0]))
+
+            if not msbfirst:
+                bitvector.reverse()
+
+        return bitvector
+
+    def update_asic_tdacrow(self, row: int) -> None:
+        """Write ASIC TDAC ROW
+        :param row: Specify row to write tdac config
+        """
+        asicbits = self.gen_tdac_pattern(self.gen_asic_row_vector(row), True)
+
+        self.write(asicbits)
 
     def readback_asic(self):
         asicbits = self.nexys.gen_asic_pattern(self.gen_asic_vector(), True, readback_mode = True)

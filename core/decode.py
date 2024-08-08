@@ -171,7 +171,11 @@ class Decode:
                 tsfine2     = (byte7 >> 5) & 0b111
                 tstdc2      = byte7 & 0b11111
 
+                ts_dec1     = self.gray_to_dec((ts1 << 3) + tsfine1)
+                ts_dec2     = self.gray_to_dec((ts2 << 3) + tsfine2)
+                tot_us      = (ts_dec2-ts_dec1)/20
+
                 hit_pd.append([id, payload, row, col, ts1, tsfine1, ts2, tsfine2, tsneg1, tsneg2, tstdc1, tstdc2,
-                               self.gray_to_dec((ts1 << 3) + tsfine1), self.gray_to_dec((ts2 << 3) + tsfine2)])
+                               ts_dec1, ts_dec2, tot_us])
         return pd.DataFrame(hit_pd, columns=['id', 'payload', 'row', 'col', 'ts1', 'tsfine1', 'ts2',
-                                             'tsfine2', 'tsneg1', 'tsneg2', 'tstdc1', 'tstdc2', 'ts_dec1', 'ts_dec2'])
+                                             'tsfine2', 'tsneg1', 'tsneg2', 'tstdc1', 'tstdc2', 'ts_dec1', 'ts_dec2','tot_us'])

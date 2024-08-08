@@ -13,6 +13,7 @@ import numpy as np
 import logging
 import argparse
 import re
+from core.asic import Asic
 
 from modules.setup_logger import logger
 
@@ -29,6 +30,7 @@ def main(args):
 
     #Create objet
     astro = astropixRun(offline=True)
+    #astro.asic_init()
 
     #Define output file path
     if args.outDir is not None:
@@ -53,22 +55,44 @@ def main(args):
         csvpath = outpath + csvname + '_offline.csv'
 
         #Setup CSV structure
-        csvframe =pd.DataFrame(columns = [
-                'readout',
-                'Chip ID',
-                'payload',
-                'location',
-                'isCol',
-                'timestamp',
-                'tot_msb',
-                'tot_lsb',
-                'tot_total',
-                'tot_us',
-                'hittime'
-        ])
+        if args.chipVer==4:
+            csvframe =pd.DataFrame(columns = [
+            'id',
+            'payload',
+            'row',
+            'col',
+            'ts1',
+            'tsfine1',
+            'ts2',
+            'tsfine2',
+            'tsneg1',
+            'tsneg2',
+            'tstdc1',
+            'tstdc2',
+            'ts_dec1',
+            'ts_dec2',
+            'tot_us'
+            ])
+        else:
+            csvframe =pd.DataFrame(columns = [
+                    'readout',
+                    'Chip ID',
+                    'payload',
+                    'location',
+                    'isCol',
+                    'timestamp',
+                    'tot_msb',
+                    'tot_lsb',
+                    'tot_total',
+                    'tot_us',
+                    'hittime'
+            ])
 
-        #Import data file            
-        f=np.loadtxt(infile, skiprows=6, dtype=str)
+        #Import data file           
+        if args.chipVer==4: 
+            f=np.loadtxt(infile, skiprows=7, dtype=str)
+        else:
+            f=np.loadtxt(infile, skiprows=6, dtype=str)
 
         #isolate only bitstream without b'...' structure 
         strings = [a[2:-1] for a in f[:,1]]
@@ -77,7 +101,7 @@ def main(args):
             #convert hex to binary and decode
             rawdata = list(binascii.unhexlify(s))
             try:
-                hits = astro.decode_readout(rawdata, i, printer = args.printDecode)
+                hits = astro.decode_readout(rawdata, i, printer = args.printDecode, chip_version=args.chipVer)
                 #Lose hittime - computed during decoding so this info is lost when decoding offline (don't even get relative times because they are processed in offline decoding at machine speed)
                 hits['hittime']=0.0
                 #Populate csv
@@ -108,6 +132,9 @@ if __name__ == "__main__":
 
     parser.add_argument('-p', '--printDecode', action='store_true', default=False, required=False,
                     help='Print decoded info into terminal. Default: False')
+    
+    parser.add_argument('-V', '--chipVer', default=3, required=False, type=int,
+                    help='Chip version - provide an int')
 
     parser.add_argument
     args = parser.parse_args()

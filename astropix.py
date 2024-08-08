@@ -48,6 +48,9 @@ class astropixRun:
 
         if offline:
             logger.info("Creating object for offline analysis")
+            self.nexys = Nexysio()
+            self.handle=self.nexys.autoopen()
+            self.asic = Asic(self.handle, self.nexys)
         else:
             self._asic_start = False
             self.nexys = Nexysio()
@@ -209,6 +212,9 @@ class astropixRun:
             self.asic_update()
         else: raise RuntimeError("Asic has not been initalized")
 
+    def update_asic_tdac_row(self, row: int):
+        self.asic.update_asic_tdacrow(row)
+
     def enable_spi(self):
         """
         Starts spi bus. 
@@ -220,7 +226,7 @@ class astropixRun:
         self.nexys.spi_reset_fpga_readout()
         # Set SPI clockdivider
         # freq = 100 MHz/spi_clkdiv
-        self.nexys.spi_clkdiv = 255
+        self.nexys.spi_clkdiv = 40
         self.nexys.send_routing_cmd()
         logger.info("SPI ENABLED")
 
@@ -414,13 +420,14 @@ class astropixRun:
         return readout
 
 
-    def decode_readout(self, readout:bytearray, i:int, printer: bool = True):
+    def decode_readout(self, readout:bytearray, i:int, chip_version, printer: bool = True):
         """
         Decodes readout
 
         Required argument:
         readout: Bytearray - readout from sensor, not the printed Hex values
         i: int - Readout number
+        chip_version: version of the astropix chip
 
         Optional:
         printer: bool - Print decoded output to terminal
@@ -428,10 +435,17 @@ class astropixRun:
         Returns dataframe
         """
         # Creates object
-        self.decode = Decode(self.asic.sampleclockperiod, nchips=self.asic.num_chips)
+        if chip_version == 4:
+            self.decode = Decode(self.asic.sampleclockperiod, nchips=self.asic.num_chips, bytesperhit=8)
 
-        list_hits = self.decode.hits_from_readoutstream(readout)
-        df=self.decode.decode_astropix3_hits(list_hits, i, printer)
+            list_hits = self.decode.hits_from_readoutstream(readout)
+            df=self.decode.decode_astropix4_hits(list_hits)
+        
+        else: 
+            self.decode = Decode(self.asic.sampleclockperiod, nchips=self.asic.num_chips)
+
+            list_hits = self.decode.hits_from_readoutstream(readout)
+            df=self.decode.decode_astropix3_hits(list_hits, i, printer)
 
         return df
 

@@ -69,6 +69,8 @@ def main(args):
     #Enable final configuration
     astro.enable_spi() 
     astro.asic_configure()
+    if args.chipVer==4:
+        astro.update_asic_tdac_row(0)
     logger.info("Chip configured")
     astro.dump_fpga()
 
@@ -84,7 +86,26 @@ def main(args):
     fname="" if not args.name else args.name+"_"
 
     # Prepares the file paths 
-    if args.saveascsv: # Here for csv
+    if args.saveascsv and args.chipVer == 4:
+        csvpath = args.outdir +'/' + fname + time.strftime("%Y%m%d-%H%M%S") + '.csv'
+        csvframe =pd.DataFrame(columns = [
+            'id',
+            'payload',
+            'row',
+            'col',
+            'ts1',
+            'tsfine1',
+            'ts2',
+            'tsfine2',
+            'tsneg1',
+            'tsneg2',
+            'tstdc1',
+            'tstdc2',
+            'ts_dec1',
+            'ts_dec2',
+            'tot_us'
+        ])
+    elif args.saveascsv: # Here for csv
         csvpath = args.outdir +'/' + fname + time.strftime("%Y%m%d-%H%M%S") + '.csv'
         csvframe =pd.DataFrame(columns = [
                 'readout',
@@ -120,6 +141,9 @@ def main(args):
     # Enables the hitplotter and uses logic on whether or not to save the images
     if args.showhits: plotter = hitplotter.HitPlotter(35, outdir=(args.outdir if args.plotsave else None))
 
+
+    astro.dump_fpga()
+
     try: # By enclosing the main loop in try/except we are able to capture keyboard interupts cleanly
         
         while errors <= max_errors: # Loop continues 
@@ -140,42 +164,68 @@ def main(args):
                 bitfile.write(f"{i}\t{str(binascii.hexlify(readout))}\n")
                 bitfile.flush() #make it simulate streaming
                 #print(binascii.hexlify(readout))
+                string_readout=str(binascii.hexlify(readout))[2:-1]
 
-                # Added fault tolerance for decoding, the limits of which are set through arguments
-                try:
-                    hits = astro.decode_readout(readout, i, printer = True)
-                except IndexError:
-                    errors += 1
-                    logger.warning(f"Decoding failed. Failure {errors} of {max_errors} on readout {i}")
-                    # We write out the failed decode dataframe
-                    hits = decode_fail_frame
-                    hits.readout = i
-                    hits.hittime = time.time()
+                decoding_bool=True
+                if args.newfilter and args.chipVer == 4:
+                    string_list=[i for i in string_readout.replace('ff','bc').split('bc') if i!='']
+                    for event in string_list:
+                        if event[0:2]!='e0':
+                            decoding_bool=False
 
-                    # This loggs the end of it all 
-                    if errors > max_errors:
-                        logger.warning(f"Decoding failed {errors} times on an index error. Terminating Progam...")
-                finally:
-                    i+=1
-                    # If we are saving a csv this will write it out. 
-                    if args.saveascsv:
-                        csvframe = pd.concat([csvframe, hits])
+                if decoding_bool:
+                    # Added fault tolerance for decoding, the limits of which are set through arguments
+                    try:
+                        hits = astro.decode_readout(readout, i, args.chipVer, printer = True)
+                    except IndexError:
+                        errors += 1
+                        logger.warning(f"Decoding failed. Failure {errors} of {max_errors} on readout {i}")
+                        # We write out the failed decode dataframe
+                        hits = decode_fail_frame
+                        hits.readout = i
+                        hits.hittime = time.time()
 
-                    # This handles the hitplotting. Code by Henrike and Amanda
-                    if args.showhits:
-                        # This ensures we aren't plotting NaN values. I don't know if this would break or not but better 
-                        # safe than sorry
-                        if pd.isnull(hits.tot_msb.loc(0)):
-                            pass
-                        elif len(hits)>0:#safeguard against bad readouts without recorded decodable hits
-                            #Isolate row and column information from array returned from decoder
-                            rows = hits.location[~hits.isCol]
-                            columns = hits.location[hits.isCol]
-                            plotter.plot_event( rows, columns, i)
+                        # This loggs the end of it all 
+                        if errors > max_errors:
+                            logger.warning(f"Decoding failed {errors} times on an index error. Terminating Progam...")
+                    finally:
+                        i+=1
+                        # If we are saving a csv this will write it out. 
+                        if i==1 and args.chipVer==4 and args.saveascsv:
+                            csvframe=hits
+                            csvframe.columns=['id',
+                                                'payload',
+                                                'row',
+                                                'col',
+                                                'ts1',
+                                                'tsfine1',
+                                                'ts2',
+                                                'tsfine2',
+                                                'tsneg1',
+                                                'tsneg2',
+                                                'tstdc1',
+                                                'tstdc2',
+                                                'ts_dec1',
+                                                'ts_dec2',
+                                                'tot_us']
+                        elif args.saveascsv:
+                            csvframe = pd.concat([csvframe, hits])
 
-                    # If we are logging runtime, this does it!
-                    if args.timeit:
-                        print(f"Read and decode took {(time.time_ns()-start)*10**-9}s")
+                        # This handles the hitplotting. Code by Henrike and Amanda
+                        if args.showhits:
+                            # This ensures we aren't plotting NaN values. I don't know if this would break or not but better 
+                            # safe than sorry
+                            if pd.isnull(hits.tot_msb.loc(0)):
+                                pass
+                            elif len(hits)>0:#safeguard against bad readouts without recorded decodable hits
+                                #Isolate row and column information from array returned from decoder
+                                rows = hits.location[~hits.isCol]
+                                columns = hits.location[hits.isCol]
+                                plotter.plot_event( rows, columns, i)
+
+                        # If we are logging runtime, this does it!
+                        if args.timeit:
+                            print(f"Read and decode took {(time.time_ns()-start)*10**-9}s")
 
     # Ends program cleanly when a keyboard interupt is sent.
     except KeyboardInterrupt:
@@ -218,6 +268,10 @@ if __name__ == "__main__":
     parser.add_argument('-c', '--saveascsv', action='store_true', 
                     default=False, required=False, 
                     help='save output files as CSV. If False, save as txt. Default: FALSE')
+    
+    parser.add_argument('-f', '--newfilter', action='store_true', 
+                    default=False, required=False, 
+                    help='Turns on filtering of strings looking for header of e0 in V4. If False, no filtering. Default: FALSE')
     
     parser.add_argument('-i', '--inject', action='store', default=None, type=int, nargs=2,
                     help =  'Turn on injection in the given row and column. Default: No injection')
