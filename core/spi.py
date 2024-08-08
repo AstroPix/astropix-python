@@ -246,7 +246,8 @@ class Spi:
         readcount = 0
 
         while not (self.get_spi_config() & SPI_READ_FIFO_EMPTY) and readcount<max_reads:
-            readbuffer = self.read_spi(4096)
+            #readbuffer = self.read_spi(4096)
+            readbuffer = self.read_spi(2048)
             read_stream.extend(readbuffer)
             readcount += 1
 

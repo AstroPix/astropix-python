@@ -141,6 +141,9 @@ def main(args):
     # Enables the hitplotter and uses logic on whether or not to save the images
     if args.showhits: plotter = hitplotter.HitPlotter(35, outdir=(args.outdir if args.plotsave else None))
 
+
+    astro.dump_fpga()
+
     try: # By enclosing the main loop in try/except we are able to capture keyboard interupts cleanly
         
         while errors <= max_errors: # Loop continues 
@@ -164,10 +167,11 @@ def main(args):
                 string_readout=str(binascii.hexlify(readout))[2:-1]
 
                 decoding_bool=True
-                string_list=[i for i in string_readout.replace('ff','bc').split('bc') if i!='']
-                for event in string_list:
-                    if event[0:2]!='e0':
-                        decoding_bool=False
+                if args.newfilter and args.chipVer == 4:
+                    string_list=[i for i in string_readout.replace('ff','bc').split('bc') if i!='']
+                    for event in string_list:
+                        if event[0:2]!='e0':
+                            decoding_bool=False
 
                 if decoding_bool:
                     # Added fault tolerance for decoding, the limits of which are set through arguments
@@ -187,7 +191,24 @@ def main(args):
                     finally:
                         i+=1
                         # If we are saving a csv this will write it out. 
-                        if args.saveascsv:
+                        if i==1 and args.chipVer==4 and args.saveascsv:
+                            csvframe=hits
+                            csvframe.columns=['id',
+                                                'payload',
+                                                'row',
+                                                'col',
+                                                'ts1',
+                                                'tsfine1',
+                                                'ts2',
+                                                'tsfine2',
+                                                'tsneg1',
+                                                'tsneg2',
+                                                'tstdc1',
+                                                'tstdc2',
+                                                'ts_dec1',
+                                                'ts_dec2',
+                                                'tot_us']
+                        elif args.saveascsv:
                             csvframe = pd.concat([csvframe, hits])
 
                         # This handles the hitplotting. Code by Henrike and Amanda
@@ -247,6 +268,10 @@ if __name__ == "__main__":
     parser.add_argument('-c', '--saveascsv', action='store_true', 
                     default=False, required=False, 
                     help='save output files as CSV. If False, save as txt. Default: FALSE')
+    
+    parser.add_argument('-f', '--newfilter', action='store_true', 
+                    default=False, required=False, 
+                    help='Turns on filtering of strings looking for header of e0 in V4. If False, no filtering. Default: FALSE')
     
     parser.add_argument('-i', '--inject', action='store', default=None, type=int, nargs=2,
                     help =  'Turn on injection in the given row and column. Default: No injection')
