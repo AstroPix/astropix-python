@@ -23,6 +23,7 @@ SR_ASIC_ADRESS  = 0x00
 
 SIN_ASIC        = 0x04
 LD_ASIC         = 0x08
+LD_TDAC_ASIC    = 0x40
 
 SIN_GECCO       = 0x02
 LD_GECCO        = 0x04
@@ -161,9 +162,9 @@ class Nexysio(Spi):
         try:
             while remaining > 0:
                 rbytes = self._handle.read(remaining)
-                logger.info("Reading %d bytes from FTDI", remaining)
+                logger.debug("Reading %d bytes from FTDI", remaining)
                 bytes.extend(rbytes)
-                logger.info("Read %d bytes from FTDI", len(rbytes))
+                logger.debug("Read %d bytes from FTDI", len(rbytes))
                 remaining -= len(rbytes)
 
             return bytes
@@ -378,6 +379,60 @@ class Nexysio(Spi):
             data.append(self.gen_asic_pattern_part(value, wload, clkdiv, readback_mode))
 
         return data
+
+    def gen_tdac_pattern(self, value: bytearray, wload: bool,
+                         clkdiv: int = 8, readback_mode=False) -> bytes:
+        """
+        Generate TDAC SR write pattern from bitvector
+
+        :param value: Bytearray vector
+        :param wload: Send load signal
+        :param clkdiv: Clockdivider 0-65535
+
+        :returns: Bytearray with ASIC configvector Header+Data
+        """
+
+        # Number of Bytes to write
+
+        if not readback_mode:
+            length = (len(value) * 5 + 30) * clkdiv
+        else:
+            length = ((len(value) + 1) * 5) * clkdiv
+
+        logger.debug('Bytes to write: %d\n', length)
+
+        hbyte = length >> 8
+        lbyte = length % 256
+
+        header = bytearray([WRITE_ADRESS, SR_ASIC_ADRESS, hbyte, lbyte])
+
+        self.debug_print("ASIC Config", length, hbyte, lbyte, header, value)
+
+        data, load = bytearray(), bytearray()
+
+        if not readback_mode:
+            # data
+            for bit in value:
+                pattern = SIN_ASIC if bit == 1 else 0
+
+                data.extend([pattern, pattern | 1, pattern, pattern | 2, pattern])  # Generate double clocked pattern
+
+            # Load signal
+            if wload:
+                load.extend([0x00, LD_TDAC_ASIC, 0x00])
+
+            data = self.__addbytes(data, clkdiv)
+            data.extend(self.__addbytes(load, clkdiv * 10))
+
+        """else:
+            data.extend([4 | 32, 4 | 33, 4 | 32, 4 | 34, 4 | 32])
+            for bit in value:
+                # data.extend([4 | 32, 4 | 33, 4, 4 | 2, 4])
+                data.extend([4, 4 | 1, 4, 4 | 2, 4])
+            data = self.__addbytes(data, clkdiv) """
+
+        # concatenate header+data
+        return b''.join([header, data])
 
     def get_configregister(self):
         """

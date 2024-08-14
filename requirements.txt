@@ -3,3 +3,6 @@ ftd2xx==1.3.1
 bitstring~=3.1
 tqdm~=4.64
 pyyaml~=6.0
+pandas
+regex
+matplotlib

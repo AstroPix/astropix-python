@@ -1,21 +1,18 @@
 """
-Updated version of beam_test.py using the astropix.py module
+Full-array running of AstroPix_v3
 
-Author: Autumn Bauman 
-Maintained by: Amanda Steinhebel, amanda.l.steinhebel@nasa.gov
+Author: Amanda Steinhebel, amanda.l.steinhebel@nasa.gov
 """
 
-#from msilib.schema import File
-#from http.client import SWITCHING_PROTOCOLS
 from astropix import astropixRun
 import modules.hitplotter as hitplotter
+import modules.postProcessing_streams as pps
 import os
 import binascii
-import pandas as pd
-import numpy as np
 import time
 import logging
 import argparse
+from io import BytesIO
 
 from modules.setup_logger import logger
 
@@ -25,26 +22,6 @@ logdir = "./runlogs/"
 if os.path.exists(logdir) == False:
     os.mkdir(logdir)
 logname = "./runlogs/AstropixRunlog_" + time.strftime("%Y%m%d-%H%M%S") + ".log"
-
-
-
-# This is the dataframe which is written to the csv if the decoding fails
-decode_fail_frame = pd.DataFrame({
-                'readout': np.nan,
-                'Chip ID': np.nan,
-                'payload': np.nan,
-                'location': np.nan,
-                'isCol': np.nan,
-                'timestamp': np.nan,
-                'tot_msb': np.nan,
-                'tot_lsb': np.nan,
-                'tot_total': np.nan,
-                'tot_us': np.nan,
-                'hittime': np.nan
-                }, index=[0]
-)
-
-  
 
 #Initialize
 def main(args):
@@ -68,6 +45,7 @@ def main(args):
 
     #Enable final configuration
     astro.enable_spi() 
+    astro.asic_configure()
     logger.info("Chip configured")
     astro.dump_fpga()
 
@@ -83,39 +61,32 @@ def main(args):
     fname="" if not args.name else args.name+"_"
 
     # Prepares the file paths 
-    if args.saveascsv: # Here for csv
-        csvpath = args.outdir +'/' + fname + time.strftime("%Y%m%d-%H%M%S") + '.csv'
-        csvframe =pd.DataFrame(columns = [
-                'readout',
-                'Chip ID',
-                'payload',
-                'location',
-                'isCol',
-                'timestamp',
-                'tot_msb',
-                'tot_lsb',
-                'tot_total',
-                'tot_us',
-                'hittime'
-        ])
-
     # Save final configuration to output file    
     ymlpathout=args.outdir +"/"+args.yaml+"_"+time.strftime("%Y%m%d-%H%M%S")+".yml"
-    astro.write_conf_to_yaml(ymlpathout)
-    # Prepare text files/logs
-    bitpath = args.outdir + '/' + fname + time.strftime("%Y%m%d-%H%M%S") + '.log'
+    try:
+        astro.write_conf_to_yaml(ymlpathout)
+    except FileNotFoundError:
+        ypath = args.yaml.split('/')
+        ymlpathout=args.outdir+"/"+ypath[1]+"_"+time.strftime("%Y%m%d-%H%M%S")+".yml"
+        astro.write_conf_to_yaml(ymlpathout)
+    # Prepare output data file
+    dataExt = '.bin' if args.binaryData else '.log'
+    bitpath = args.outdir + '/' + fname + time.strftime("%Y%m%d-%H%M%S") + dataExt
+
     # textfiles are always saved so we open it up 
-    bitfile = open(bitpath,'w')
-    # Writes all the config information to the file
-    bitfile.write(astro.get_log_header())
-    bitfile.write(str(args))
-    bitfile.write("\n")
+    openVar = 'wb' if args.binaryData else 'w'
+    bitfile = open(bitpath,openVar)
+    if not args.binaryData:
+        # Writes all the config information to the file
+        bitfile.write(astro.get_log_header())
+        bitfile.write(str(args))
+        bitfile.write("\n") 
 
     # Enables the hitplotter and uses logic on whether or not to save the images
     if args.showhits: plotter = hitplotter.HitPlotter(35, outdir=(args.outdir if args.plotsave else None))
 
+    logger.info("Collecting data!")
     try: # By enclosing the main loop in try/except we are able to capture keyboard interupts cleanly
-        
         while errors <= max_errors: # Loop continues 
 
             # This might be possible to do in the loop declaration, but its a lot easier to simply add in this logic
@@ -126,50 +97,24 @@ def main(args):
             
             # We aren't using timeit, just measuring the diffrence in ns
             if args.timeit: start = time.time_ns()
-            readout = astro.get_FW_readout()
+            readout = astro.get_readout()
             if args.timeit: print(f"Readout took {(time.time_ns()-start)*10**-9}s")
 
             if readout: #if there is data contained in the readout stream
-                # Writes the hex version to hits
-                bitfile.write(f"{i}\t{str(binascii.hexlify(readout))}\n")
-                bitfile.flush() #make it simulate streaming
-                print(binascii.hexlify(readout))
-
-                # Added fault tolerance for decoding, the limits of which are set through arguments
-                try:
-                    hits = astro.decode_readout(readout, i, printer = True)
-                except IndexError:
-                    errors += 1
-                    logger.warning(f"Decoding failed. Failure {errors} of {max_errors} on readout {i}")
-                    # We write out the failed decode dataframe
-                    hits = decode_fail_frame
-                    hits.readout = i
-                    hits.hittime = time.time()
-
-                    # This loggs the end of it all 
-                    if errors > max_errors:
-                        logger.warning(f"Decoding failed {errors} times on an index error. Terminating Progam...")
-                finally:
-                    i+=1
-                    # If we are saving a csv this will write it out. 
-                    if args.saveascsv:
-                        csvframe = pd.concat([csvframe, hits])
-
-                    # This handles the hitplotting. Code by Henrike and Amanda
-                    if args.showhits:
-                        # This ensures we aren't plotting NaN values. I don't know if this would break or not but better 
-                        # safe than sorry
-                        if pd.isnull(hits.tot_msb.loc(0)):
-                            pass
-                        elif len(hits)>0:#safeguard against bad readouts without recorded decodable hits
-                            #Isolate row and column information from array returned from decoder
-                            rows = hits.location[~hits.isCol]
-                            columns = hits.location[hits.isCol]
-                            plotter.plot_event( rows, columns, i)
-
-                    # If we are logging runtime, this does it!
-                    if args.timeit:
-                        print(f"Read and decode took {(time.time_ns()-start)*10**-9}s")
+                logger.debug(binascii.hexlify(readout))
+                # Write raw data file
+                if args.binaryData:
+                    #Save full stream as binary
+                    write_byte = BytesIO(readout)
+                    bitfile.write(write_byte.getbuffer())
+                else:
+                    #Write full stream in hex
+                    bitfile.write(f"{i}\t{str(binascii.hexlify(readout))}\n")
+                i+=1
+                logger_bool=True
+            if i%100==0 and logger_bool: #prints out progress every 100 readouts, also prevents multiple prints per readout
+                logger.info(f"{i} readout streams collected")
+                logger_bool=False
 
     # Ends program cleanly when a keyboard interupt is sent.
     except KeyboardInterrupt:
@@ -178,13 +123,48 @@ def main(args):
     except Exception as e:
         logger.exception(f"Encountered Unexpected Exception! \n{e}")
     finally:
-        if args.saveascsv: 
-            csvframe.index.name = "dec_order"
-            csvframe.to_csv(csvpath) 
         if args.inject is not None: astro.stop_injection()   
         bitfile.close() # Close open file        
         astro.close_connection() # Closes SPI
         logger.info("Program terminated successfully")
+
+    #post-processing, if data was originally written to .txt and if any data was read off
+    if not args.binaryData and i>0:
+        #create PPS file
+        bitpath_pps = bitpath[:-4]+"_PPS.log"
+        postProcessing = pps.postProcessing_streams(bitpath)
+
+        with open(bitpath_pps, 'w', encoding='utf-8') as f:
+            f.write("EventNmb \t BadEvents \t Data \n")
+            f.write('\n'.join(f'{tup[0]} \t {tup[1]} \t {tup[2]}' for tup in postProcessing.dump()))
+            f.close()
+
+        #create decoded CSV
+        csvpath = bitpath[:-4]+".csv"
+        postProcessing2 = pps.postProcessing_streams(bitpath_pps, dec=True)
+
+        df_decoded = postProcessing2.decode()
+        df_decoded.columns = [ 
+            'readout',
+            'Chip ID',
+            'payload',
+            'location',
+            'isCol',
+            'timestamp',
+            'tot_msb',
+            'tot_lsb',
+            'tot_total',
+            'tot_us'
+        ]
+        df_decoded.index.name = "dec_ord"
+        df_decoded.to_csv(csvpath)      
+    elif i==0:
+        logger.warning("No data recorded - nothing to decode. Deleting empty file")
+        if os.path.exists(bitpath):
+            os.remove(bitpath)
+        else:
+            print(f"The file {bitpath} does not exist")
+
     # END OF PROGRAM
     
 if __name__ == "__main__":
@@ -202,28 +182,26 @@ if __name__ == "__main__":
     parser.add_argument('-V', '--chipVer', default=2, required=False, type=int,
                     help='Chip version - provide an int')
     
-    parser.add_argument('-s', '--showhits', action='store_true',
-                    default=False, required=False,
+    parser.add_argument('-s', '--showhits', action='store_true', default=False, required=False,
                     help='Display hits in real time during data taking')
     
     parser.add_argument('-p', '--plotsave', action='store_true', default=False, required=False,
                     help='Save plots as image files. If set, will be saved in  same dir as data. Default: FALSE')
     
-    parser.add_argument('-c', '--saveascsv', action='store_true', 
-                    default=False, required=False, 
-                    help='save output files as CSV. If False, save as txt. Default: FALSE')
+    parser.add_argument('-b', '--binaryData', action='store_true', default=False, required=False,
+                    help='Save raw data as a binary .bin file. Does not filter railing/idle bytes. Default: FALSE')
     
     parser.add_argument('-i', '--inject', action='store', default=None, type=int, nargs=2,
                     help =  'Turn on injection in the given row and column. Default: No injection')
 
     parser.add_argument('-v','--vinj', action='store', default = None, type=float,
-                    help = 'Specify injection voltage (in mV). DEFAULT 300 mV')
+                    help = 'Specify injection voltage (in mV). DEFAULT None (uses value in yml)')
 
     parser.add_argument('-a', '--analog', action='store', required=False, type=int, default = 0,
                     help = 'Turn on analog output in the given column. Default: Column 0.')
 
     parser.add_argument('-t', '--threshold', type = float, action='store', default=None,
-                    help = 'Threshold voltage for digital ToT (in mV). DEFAULT 100mV')
+                    help = 'Threshold voltage for digital ToT (in mV). DEFAULT value in yml OR 100mV if voltagecard not in yml')
     
     parser.add_argument('-E', '--errormax', action='store', type=int, default='100', 
                     help='Maximum index errors allowed during decoding. DEFAULT 100')
@@ -238,13 +216,8 @@ if __name__ == "__main__":
                     help='Prints runtime from seeing a hit to finishing the decode to terminal')
 
     parser.add_argument('-L', '--loglevel', type=str, choices = ['D', 'I', 'E', 'W', 'C'], action="store", default='I',
-                    help='Set loglevel used. Options: D - debug, I - info, E - error, W - warning, C - critical. DEFAULT: D')
-    """
-    parser.add_argument('--ludicrous-speed', type=bool, action='store_true', default=False,
-                    help="Fastest possible data collection. No decode, no output, no file.\
-                         Saves bitstreams in memory until keyboard interupt or other error and then writes them to file.\
-                             Use is not generally recommended")
-    """
+                    help='Set loglevel used. Options: D - debug, I - info, E - error, W - warning, C - critical. DEFAULT: I')
+    
     parser.add_argument
     args = parser.parse_args()
 

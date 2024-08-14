@@ -107,13 +107,9 @@ def main(args, injv, fpgaCon:bool=True, fpgaDiscon:bool=True):
             # Break conditions
             if args.maxtime is not None:
                 if time.time() >= end_time: break
+            readout = astro.get_readout()
             
-            if astro.hits_present(): # Checks if hits are present
-    
-                time.sleep(.001) # this is probably not needed, will ask Nicolas
-
-                readout = astro.get_readout(3) # Gets the bytearray from the chip
-
+            if readout: # Checks if hits are present
                 # Writes the hex version to hits
                 bitfile.write(f"{i}\t{str(binascii.hexlify(readout))}\n")
                 print(binascii.hexlify(readout))
@@ -162,7 +158,7 @@ if __name__ == "__main__":
                     default=False, required=False, 
                     help='save output files as CSV. If False, save as txt. Default: FALSE')
     
-    parser.add_argument('-t', '--threshold', type = float, action='store', default=None,
+    parser.add_argument('-t', '--threshold', type = float, action='store', default=80,
                     help = 'Threshold voltage for digital ToT (in mV). DEFAULT 80mV')
 
     parser.add_argument('-M', '--maxtime', type=float, action='store', default=None,

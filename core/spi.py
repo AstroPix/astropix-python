@@ -7,7 +7,6 @@ Created on Tue Jul 12 20:07:13 2021
 """
 import logging
 from bitstring import BitArray
-
 from modules.setup_logger import logger
 
 
@@ -151,6 +150,15 @@ class Spi:
 
     def spi_reset(self) -> None:
         """
+        OBSOLETE: Reset SPI
+        Resets SPI module and FIFOs
+        """
+        
+        logger.warning("spi_reset() is obsolete, use spi_reset_fpga() instead")
+        self.spi_reset_fpga_readout()
+
+    def spi_reset_fpga_readout(self) -> None:
+        """
         Reset SPI
 
         Resets SPI module and FIFOs
@@ -238,7 +246,8 @@ class Spi:
         readcount = 0
 
         while not (self.get_spi_config() & SPI_READ_FIFO_EMPTY) and readcount<max_reads:
-            readbuffer = self.read_spi(4096)
+            #readbuffer = self.read_spi(4096)
+            readbuffer = self.read_spi(2048)
             read_stream.extend(readbuffer)
             readcount += 1
 
@@ -280,7 +289,7 @@ class Spi:
         logger.info("SPI: Send routing cmd")
         self.write_spi(bytearray([SPI_HEADER_EMPTY, 0, 0, 0, 0, 0, 0, 0]), False)
 
-    def write_spi(self, data: bytearray, MSBfirst: bool = True, buffersize: int = 1023) -> None:
+    def write_spi(self, data: bytearray, MSBfirst: bool = True) -> None:
         """
         Write to Nexys SPI Write FIFO
 
@@ -290,48 +299,18 @@ class Spi:
         """
 
         if not MSBfirst:
-
-            for index, item in enumerate(data):
-
-                item_rev = BitArray(uint=item, length=8)
-                item_rev.reverse()
-
-                data[index] = item_rev.uint
+           for index in range(len(data)):
+                data[index] = int(format(data[index], '08b')[::-1], 2)
 
         logger.debug('SPIdata: %s', data)
 
-        waiting = True
         i = 0
-        counter = buffersize / 3
-
-        # WrFIFO bit positions in spi_config register 0x21
-        compare_empty = 2
-        compare_full = 4
-
-        # Check if WrFIFO is Empty
-        while waiting:
-
-            # Convert Hex string to int
-            result = self.get_spi_config()
-
-            # Wait until WrFIFO empty
-            if result & compare_empty:
-                waiting = False
+        # Wait until WrFIFO is Empty
+        while not self.get_spi_config() & SPI_WRITE_FIFO_EMPTY:
+            continue
 
         while i < len(data):
-
-            if counter > 0:
-                writebuffer = bytearray(data[i:(i + 16)])
-
+            if not self.get_spi_config() & SPI_WRITE_FIFO_FULL:
+                self.direct_write_spi(bytes(bytearray(data[i:(i + 16)])))
+                logger.debug('Write SPI bytes %d:%d', i, i + 16)
                 i += 16
-                counter -= 1
-
-                self.direct_write_spi(bytes(writebuffer))
-
-            else:
-                result = self.get_spi_config()
-
-                if result & compare_empty:
-                    counter = buffersize / 3
-                elif not result & compare_full:
-                    counter = 1
