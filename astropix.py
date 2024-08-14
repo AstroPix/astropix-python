@@ -226,7 +226,8 @@ class astropixRun:
         self.nexys.spi_reset_fpga_readout()
         # Set SPI clockdivider
         # freq = 100 MHz/spi_clkdiv
-        self.nexys.spi_clkdiv = 40
+        if self.chipversion==4: self.nexys.spi_clkdiv = 40
+        else: self.nexys.spi_clkdiv = 255
         self.nexys.send_routing_cmd()
         logger.info("SPI ENABLED")
 
