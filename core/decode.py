@@ -143,7 +143,7 @@ class Decode:
 
         return pd.DataFrame(hit_pd, columns=['readout','Chip ID','payload','location', 'isCol', 'timestamp', 'tot_msb','tot_lsb','tot_total', 'tot_us', 'hittime'])
     
-    def decode_astropix4_hits(self, list_hits: list) -> pd.DataFrame:
+    def decode_astropix4_hits(self, list_hits: list, printer:bool = False) -> pd.DataFrame:
         """
         Decode 8byte Frames from AstroPix 4
         :param list_hists: List with all hits
@@ -177,5 +177,18 @@ class Decode:
 
                 hit_pd.append([id, payload, row, col, ts1, tsfine1, ts2, tsfine2, tsneg1, tsneg2, tstdc1, tstdc2,
                                ts_dec1, ts_dec2, tot_us])
+                
+                if printer:
+                    logger.info(
+                    "Header: ChipId: %d\tPayload: %d\t"
+                    "Row: %d\t Col: %d\t"
+                    "TS1: %d\t TS1_fine %d\t"
+                    "TS2: %d\t TS2_fine %d\t"
+                    "TS1_dec: %d\t TS2_dec %d\t"
+                    "Total ToT [us]: %f us",
+                    id, payload, row, col, ts1, tsfine1, ts2, tsfine2, ts_dec1, ts_dec2, tot_us
+                    )
+
+
         return pd.DataFrame(hit_pd, columns=['id', 'payload', 'row', 'col', 'ts1', 'tsfine1', 'ts2',
                                              'tsfine2', 'tsneg1', 'tsneg2', 'tstdc1', 'tstdc2', 'ts_dec1', 'ts_dec2','tot_us'])
