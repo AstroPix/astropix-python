@@ -178,7 +178,7 @@ class Decode:
                     tot_us      = (ts_dec2 - ts_dec1) / 20
                 else:
                     # If TS counter wrapped -> ts_dec2 < ts_dec1
-                    tot_us      = (2**17 - 1 - ts_dec1 + ts_dec2) / 20
+                    tot_us      = (2**17 - ts_dec1 + ts_dec2) / 20
 
                 hit_pd.append([id, payload, row, col, ts1, tsfine1, ts2, tsfine2, tsneg1, tsneg2, tstdc1, tstdc2,
                                ts_dec1, ts_dec2, tot_us])
@@ -193,7 +193,6 @@ class Decode:
                     "Total ToT [us]: %f us",
                     id, payload, row, col, ts1, tsfine1, ts2, tsfine2, ts_dec1, ts_dec2, tot_us
                     )
-
 
         return pd.DataFrame(hit_pd, columns=['id', 'payload', 'row', 'col', 'ts1', 'tsfine1', 'ts2',
                                              'tsfine2', 'tsneg1', 'tsneg2', 'tstdc1', 'tstdc2', 'ts_dec1', 'ts_dec2','tot_us'])
