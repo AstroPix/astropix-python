@@ -40,7 +40,7 @@ class Decode:
 
             id_rev = int(f'{id:08b}'[::-1], 2)
             self._header_rev.add(id_rev)
-    
+
     def gray_to_dec(self, gray: int) -> int:
         """
         Decode Gray code to decimal
@@ -52,7 +52,7 @@ class Decode:
             gray ^= bits
             bits >>= 1
         return gray
-    
+
     def reverse_bitorder(self, data: bytearray) -> bytearray:
         reversed_data = bytearray()
 
@@ -80,9 +80,9 @@ class Decode:
         bytesperhit = self._bytesperhit
 
         while i < length:
-            if readout[i] not in header: 
+            if readout[i] not in header:
                 i += 1
-            else:                
+            else:
                 if i + bytesperhit <= length:
                     if reverse_bitorder:
                         hitlist.append(self.reverse_bitorder(readout[i:i + bytesperhit]))
@@ -142,7 +142,7 @@ class Decode:
                     )
 
         return pd.DataFrame(hit_pd, columns=['readout','Chip ID','payload','location', 'isCol', 'timestamp', 'tot_msb','tot_lsb','tot_total', 'tot_us', 'hittime'])
-    
+
     def decode_astropix4_hits(self, list_hits: list, printer:bool = False) -> pd.DataFrame:
         """
         Decode 8byte Frames from AstroPix 4
@@ -173,11 +173,16 @@ class Decode:
 
                 ts_dec1     = self.gray_to_dec((ts1 << 3) + tsfine1)
                 ts_dec2     = self.gray_to_dec((ts2 << 3) + tsfine2)
-                tot_us      = (ts_dec2-ts_dec1)/20
+
+                if ts_dec2 >= ts_dec1:
+                    tot_us      = (ts_dec2 - ts_dec1) / 20
+                else:
+                    # If TS counter wrapped -> ts_dec2 < ts_dec1
+                    tot_us      = (2**17 - 1 - ts_dec1 + ts_dec2) / 20
 
                 hit_pd.append([id, payload, row, col, ts1, tsfine1, ts2, tsfine2, tsneg1, tsneg2, tstdc1, tstdc2,
                                ts_dec1, ts_dec2, tot_us])
-                
+
                 if printer:
                     logger.info(
                     "Header: ChipId: %d\tPayload: %d\t"
