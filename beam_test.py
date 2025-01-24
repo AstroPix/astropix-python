@@ -20,11 +20,13 @@ import argparse
 from modules.setup_logger import logger
 
 
+time_at_start=time.strftime("%Y%m%d-%H%M%S")
+
 # This sets the logger name.
 logdir = "./runlogs/"
 if os.path.exists(logdir) == False:
     os.mkdir(logdir)
-logname = "./runlogs/AstropixRunlog_" + time.strftime("%Y%m%d-%H%M%S") + ".log"
+logname = "./runlogs/AstropixRunlog_" + time_at_start + ".log"
 
 
 
@@ -87,7 +89,7 @@ def main(args):
 
     # Prepares the file paths 
     if args.saveascsv and args.chipVer == 4:
-        csvpath = args.outdir +'/' + fname + time.strftime("%Y%m%d-%H%M%S") + '.csv'
+        csvpath = args.outdir +'/' + fname + time_at_start + '.csv'
         csvframe =pd.DataFrame(columns = [
             'id',
             'payload',
@@ -106,7 +108,7 @@ def main(args):
             'tot_us'
         ])
     elif args.saveascsv: # Here for csv
-        csvpath = args.outdir +'/' + fname + time.strftime("%Y%m%d-%H%M%S") + '.csv'
+        csvpath = args.outdir +'/' + fname + time_at_start + '.csv'
         csvframe =pd.DataFrame(columns = [
                 'readout',
                 'Chip ID',
@@ -122,15 +124,15 @@ def main(args):
         ])
 
     # Save final configuration to output file    
-    ymlpathout=args.outdir +"/"+args.yaml+"_"+time.strftime("%Y%m%d-%H%M%S")+".yml"
+    ymlpathout=args.outdir +"/"+args.yaml+"_"+time_at_start+".yml"
     try:
         astro.write_conf_to_yaml(ymlpathout)
     except FileNotFoundError:
         ypath = args.yaml.split('/')
-        ymlpathout=args.outdir+"/"+ypath[1]+"_"+time.strftime("%Y%m%d-%H%M%S")+".yml"
+        ymlpathout=args.outdir+"/"+ypath[1]+"_"+time_at_start+".yml"
         astro.write_conf_to_yaml(ymlpathout)
     # Prepare text files/logs
-    bitpath = args.outdir + '/' + fname + time.strftime("%Y%m%d-%H%M%S") + '.log'
+    bitpath = args.outdir + '/' + fname + time_at_start + '.log'
     # textfiles are always saved so we open it up 
     bitfile = open(bitpath,'w')
     # Writes all the config information to the file
