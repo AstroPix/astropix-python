@@ -116,5 +116,11 @@ def test_new_decoding():
     assert readout.num_hits() == 2
     for hit in readout.hits:
         print(hit)
-        print(hit.to_csv())
-
+    hit0, hit1 = readout.hits
+    # Compare the hit objects with the conten of the csv files---note we are
+    # assuming that if the TOT value in us is ok, then all the intermediate timestamp
+    # fields are ok, as well.
+    assert (hit0.chip_id, hit0.payload, hit0.row, hit0.column) == decoded_data0[0:4]
+    assert hit0.tot_us == decoded_data0[-1]
+    assert (hit1.chip_id, hit1.payload, hit1.row, hit1.column) == decoded_data1[0:4]
+    assert hit1.tot_us == decoded_data1[-1]
