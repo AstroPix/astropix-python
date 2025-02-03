@@ -22,6 +22,7 @@ from __future__ import annotations
 from contextlib import contextmanager
 import json
 import struct
+import typing
 
 from modules.setup_logger import logger
 
@@ -50,6 +51,11 @@ class BitPattern(str):
     it allows to reason about the incoming bits in a straighforward fashion, and
     I doubt we will ever need to optimize this. (If that is the case, there are
     probably ways, using either numpy or the bitarray third-party package.)
+
+    Arguments
+    ---------
+    data : bytes
+        The binary representation of the bit pattern.
     """
 
     def __new__(cls, data: bytes) -> None:
@@ -73,7 +79,10 @@ class AstroPixHitBase:
     fields are arbitrary subsets of a multi-byte word, it seemed more naturale to
     describe the hit as a sequence of fields, each one with its own length in bits.
 
-
+    Arguments
+    ---------
+    data : bytearray
+        The portion of a full AstroPix readout representing a single hit.
     """
 
     SIZE = None
@@ -93,12 +102,17 @@ class AstroPixHitBase:
             self.__setattr__(name, bit_pattern[pos:pos + width])
             pos += width
 
-    def write(self, otuput_file) -> None:
+    def write(self, otuput_file: typing.BinaryIO) -> None:
         """Write the binary data to a file.
+
+        Arguments
+        ---------
+        output_file : BinaryIO
+            A file object opened in "wb" mode.
         """
         otuput_file.write(self._data)
 
-    def __eq__(self, other) -> bool:
+    def __eq__(self, other: 'AstroPixHitBase') -> bool:
         """Comparison operator---this is handy in the unit tests.
         """
         return self._data == other._data
@@ -238,7 +252,7 @@ class AstroPix4Hit(AstroPixHitBase):
         """
         return self._text(fields, fmts=None, separator=',')
 
-    def __str__(self):
+    def __str__(self) -> str:
         """String formatting.
         """
         return self._repr(self._FIELD_NAMES)
@@ -258,6 +272,11 @@ class AstroPix4Readout:
 
     where the hit data are 8-byte long and encapsulate all the information within
     a single hit.
+
+    Arguments
+    ---------
+    data : bytearray
+        A full readout from a NEXYS board.
     """
 
     PADDING_BYTE = bytes.fromhex('ff')
@@ -280,6 +299,11 @@ class AstroPix4Readout:
 
     def __decode(self, reverse: bool = True) -> list[AstroPix4Hit]:
         """Decode the underlying data and turn them into a list of hits.
+
+        Arguments
+        ---------
+        reverse : bool (default True)
+            If True, the bit order within each byte is reversed.
         """
         hits = []
         pos = 0
@@ -353,13 +377,18 @@ class FileHeader:
     _HEADER_LENGTH_FMT = 'I'
     ENCODING = 'utf-8'
 
-    def __init__(self, content) -> None:
+    def __init__(self, content: typing.Any) -> None:
         """Constructor.
         """
         self._content = content
 
-    def write(self, output_file) -> None:
+    def write(self, output_file: typing.BinaryIO) -> None:
         """Serialize the header structure to an output binary file.
+
+        Arguments
+        ---------
+        output_file : BinaryIO
+            A file object opened in "wb" mode.
         """
         output_file.write(self.MAGIC_WORD.encode(self.ENCODING))
         data = json.dumps(self._content).encode(self.ENCODING)
@@ -367,8 +396,13 @@ class FileHeader:
         output_file.write(data)
 
     @classmethod
-    def read(cls, input_file) -> 'FileHeader':
+    def read(cls, input_file: typing.BinaryIO) -> 'FileHeader':
         """De-serialize the header structure from an input binary file.
+
+        Arguments
+        ---------
+        input_file : BinaryIO
+            A file object opened in "rb" mode.
         """
         magic = input_file.read(len(cls.MAGIC_WORD)).decode(cls.ENCODING)
         if magic != cls.MAGIC_WORD:
@@ -378,7 +412,7 @@ class FileHeader:
         content = json.loads(input_file.read(header_length).decode(cls.ENCODING))
         return cls(content)
 
-    def __eq__(self, other) -> bool:
+    def __eq__(self, other: 'FileHeader') -> bool:
         """Comparison operator---this is useful in the unit tests in order to make
         sure that the serialization/deserialization roundtrips.
         """
@@ -398,6 +432,11 @@ class AstroPixBinaryFile:
 
         At this point this only supports input files. Shall we consider extending
         the interface for writing output files as well?
+
+    Arguments
+    ---------
+    hit_class : type
+        The class representing the hit type encoded in the file, e.g., ``AstroPix4Hit``.
     """
 
     def __init__(self, hit_class: type) -> None:
@@ -409,6 +448,11 @@ class AstroPixBinaryFile:
     @contextmanager
     def open(self, file_path: str):
         """Open the file.
+
+        Arguments
+        ---------
+        file_path : str
+            Path to the file to be read.
         """
         logger.debug(f'Opening input packet file {file_path}...')
         with open(file_path, 'rb') as input_file:
