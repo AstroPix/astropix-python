@@ -15,9 +15,14 @@
 
 from __future__ import annotations
 
-
 """Basic packet description for the astropix chips.
 """
+
+from contextlib import contextmanager
+import json
+import struct
+
+from modules.setup_logger import logger
 
 
 # Table to reverse the bit order within a byte---we pre-compute this once and
@@ -86,6 +91,16 @@ class AstroPixHitBase:
         for name, width in self.FIELD_DICT.items():
             self.__setattr__(name, bit_pattern[pos:pos + width])
             pos += width
+
+    def write(self, otuput_file) -> None:
+        """Write the binary data to a file.
+        """
+        otuput_file.write(self._data)
+
+    def __eq__(self, other) -> bool:
+        """Comparison operator---this is handy in the unit tests.
+        """
+        return self._data == other._data
 
     @staticmethod
     def gray_to_decimal(gray: int) -> int:
@@ -304,3 +319,87 @@ class AstroPix4Readout:
         """String formatting.
         """
         return f'{self.__class__.__name__}({self.num_hits()} hits, {len(self)} bytes)'
+
+
+class FileHeader:
+
+    """Class describing a file header.
+    """
+
+    MAGIC_WORD = '%APXDF'
+    _HEADER_LENGTH_FMT = 'I'
+    ENCODING = 'utf-8'
+
+    def __init__(self, info) -> None:
+        """Constructor.
+        """
+        self._info = info
+
+    def write(self, output_file) -> None:
+        """Serialize the header structure to an output binary file.
+        """
+        output_file.write(self.MAGIC_WORD.encode(self.ENCODING))
+        data = json.dumps(self._info).encode(self.ENCODING)
+        num_bytes = len(data)
+        output_file.write(struct.pack(self._HEADER_LENGTH_FMT, num_bytes))
+        output_file.write(data)
+
+    @classmethod
+    def read(cls, input_file) -> 'FileHeader':
+        """De-serialize the header structure from an input binary file.
+        """
+        magic = input_file.read(len(cls.MAGIC_WORD)).decode(cls.ENCODING)
+        if magic != cls.MAGIC_WORD:
+            raise RuntimeError(f'Invalid magic word ({magic}), expected {cls.MAGIC_WORD}')
+        buf = input_file.read(struct.calcsize(cls._HEADER_LENGTH_FMT))
+        num_bytes = struct.unpack(cls._HEADER_LENGTH_FMT, buf)[0]
+        header_info = json.loads(input_file.read(num_bytes).decode(cls.ENCODING))
+        return cls(header_info)
+
+    def __eq__(self, other) -> bool:
+        """Comparison operator---this is useful in the unit tests in order to make
+        sure that the serialization/deserialization roundtrips.
+        """
+        return self._info == other._info
+
+    def __str__(self) -> str:
+        """String representation.
+        """
+        return f'{self._info}'
+
+
+class AstroPixBinaryFile:
+
+    """Class describing a binary file containing packets.
+    """
+
+    def __init__(self, hit_class: type) -> None:
+        """Constructor.
+        """
+        self._hit_class = hit_class
+        self._input_file = None
+
+    @contextmanager
+    def open(self, file_path: str):
+        """Open the file.
+        """
+        logger.debug(f'Opening input packet file {file_path}...')
+        with open(file_path, 'rb') as input_file:
+            self._input_file = input_file
+            self.header = FileHeader.read(self._input_file)
+            yield self
+            self._input_file = None
+        logger.debug(f'Input file {file_path} closed.')
+
+    def __iter__(self) -> 'AstroPixBinaryFile':
+        """Return the iterator object (self).
+        """
+        return self
+
+    def __next__(self) -> AstroPixHitBase:
+        """Read the next packet in the buffer.
+        """
+        data = self._input_file.read(self._hit_class.SIZE)
+        if not data:
+            raise StopIteration
+        return self._hit_class(data)

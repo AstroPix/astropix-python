@@ -18,9 +18,10 @@
 """
 
 import binascii
+import tempfile
 
 from core.decode import Decode
-from core.fmt import BitPattern, AstroPix4Readout
+from core.fmt import BitPattern, AstroPix4Hit, AstroPix4Readout, FileHeader, AstroPixBinaryFile
 
 
 # Mock data from a small test run with AstroPix4---the bytearray below should
@@ -124,3 +125,53 @@ def test_new_decoding():
     assert hit0.tot_us == decoded_data0[-1]
     assert (hit1.chip_id, hit1.payload, hit1.row, hit1.column) == decoded_data1[0:4]
     assert hit1.tot_us == decoded_data1[-1]
+
+
+def test_file_header():
+    """Test the file header.
+    """
+    # Create a dummy header.
+    header = FileHeader(dict(version=1, content='hits'))
+    print(header)
+
+    # Write the header to an output file.
+    with tempfile.NamedTemporaryFile('wb', delete=True, delete_on_close=False) as output_file:
+        print(f'Writing header to {output_file.name}...')
+        header.write(output_file)
+        output_file.close()
+
+        # Read back the header from the output file.
+        print(f'Reading header from {output_file.name}...')
+        with open(output_file.name, 'rb') as input_file:
+            twin = FileHeader.read(input_file)
+        print(twin)
+
+    # Make sure that the whole thing roundtrips.
+    assert twin == header
+
+
+def test_file():
+    """Try writing and reading a fully-fledged output file.
+    """
+    # Create a dummy header.
+    header = FileHeader(dict(version=1, content='hits'))
+    print(header)
+    # Grab our test AstroPix4 hits.
+    readout = AstroPix4Readout(sample_readout_data)
+
+    # Write the output file.
+    with tempfile.NamedTemporaryFile('wb', delete=True, delete_on_close=False) as output_file:
+        print(f'Writing data to {output_file.name}...')
+        header.write(output_file)
+        for hit in readout.hits:
+            hit.write(output_file)
+        output_file.close()
+
+        # Read back the input file---note this is done in the context of the first
+        # with, so that tempfile can cleanup after the fact.
+        print(f'Reading data from {output_file.name}...')
+        with AstroPixBinaryFile(AstroPix4Hit).open(output_file.name) as input_file:
+            print(input_file.header)
+            for i, hit in enumerate(input_file):
+                print(hit)
+                assert hit == readout.hits[i]
