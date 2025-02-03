@@ -15,13 +15,9 @@
 
 from __future__ import annotations
 
+
 """Basic packet description for the astropix chips.
 """
-
-import binascii
-import struct
-
-from core.decode import Decode
 
 
 # Table to reverse the bit order within a byte---we pre-compute this once and
@@ -308,79 +304,3 @@ class AstroPix4Readout:
         """String formatting.
         """
         return f'{self.__class__.__name__}({self.num_hits()} hits, {len(self)} bytes)'
-
-
-def test_new_parsing(data):
-    """Test the new parsing functionality.
-    """
-    readout = AstroPix4Readout(data)
-    print(readout)
-    assert readout.num_hits() == 2
-    for hit in readout.hits:
-        print(hit)
-        print(hit.to_csv())
-
-
-def test_readout(readout):
-    """Small test program to try and replicate what beam_test.py is doing on mock data.
-
-    """
-    # Convert the bytearray object from the board into a string
-    string_readout = str(binascii.hexlify(readout))
-
-    # When we get here, string_readout is a string looking like "b'.....'"
-    # First thing first, we do remove the leading "b'" and the trailing "'"
-    string_readout = string_readout[2:-1]
-
-    # Now we split the thing into the single events.  This goes as follows:
-    # * replace all the ff with bc
-    # * split by bc
-    # This leaves a loong list of strings, among which most are just empty, and the
-    # ones that are not are the representations of our event.
-    string_list = [i for i in string_readout.replace('ff','bc').split('bc') if i!='']
-
-    # Flag to catch potential deciding errors. This should remain True unless
-    # something goes wrong.
-    decoding_bool = True
-
-    # Loop over the events.
-    for event in string_list:
-        # e0 is apparently the event header---if we do have a mismatch we signal
-        # a decoding error.
-        if event[0:2] != 'e0':
-            decoding_bool = False
-        print(event)
-
-    assert decoding_bool == True
-
-    # A couple of hard-coded variables, straight from asic.py
-    sampleclockperiod = 5
-    num_chips = 1
-    decode = Decode(sampleclockperiod, nchips=num_chips, bytesperhit=8)
-
-    list_hits = decode.hits_from_readoutstream(readout)
-    df = decode.decode_astropix4_hits(list_hits, printer=True)
-    print(df)
-    return df
-
-
-if __name__ == '__main__':
-    decoded_header = 'dec_ord,id,payload,row,col,ts1,tsfine1,ts2,tsfine2,tsneg1,tsneg2,tstdc1,tstdc2,ts_dec1,ts_dec2,tot_us'
-    decoded_fields = (0,0,7,0,5,5167,3,5418,6,1,0,0,0,49581,52836,162.75)
-    #readout_data = bytearray(text_data)
-
-    mock_readout = bytearray.fromhex('bcbce08056e80da85403bcbcbcbcbcbcbcbce080d26f04ca3005bcbcbcbcbcbcffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff')
-
-    byte_values = (
-        (7, 1, 106, 23, 176, 21, 42, 192),
-        (7, 1, 75, 246, 32, 83, 12, 160)
-    )
-
-    for key, value in zip(decoded_header.split(','), decoded_fields):
-        print(f'{key} = {value}')
-
-    print('Old...')
-    test_readout(mock_readout)
-
-    print('New...')
-    test_new_parsing(mock_readout)
