@@ -21,7 +21,7 @@ import binascii
 import tempfile
 
 from core.decode import Decode
-from core.fmt import BitPattern, AstroPix4Hit, AstroPix4Readout, FileHeader, AstroPixBinaryFile
+from core.fmt import BitPattern, AstroPix4Hit, AstroPixReadout, FileHeader, AstroPixBinaryFile
 
 
 # Mock data from a small test run with AstroPix4---the bytearray below should
@@ -112,7 +112,7 @@ def test_original_decoding():
 def test_new_decoding():
     """Test the new decoding stuff.
     """
-    readout = AstroPix4Readout(sample_readout_data)
+    readout = AstroPixReadout(sample_readout_data)
     print(readout)
     assert readout.num_hits() == 2
     for hit in readout.hits:
@@ -157,7 +157,7 @@ def test_file():
     header = FileHeader(dict(version=1, content='hits'))
     print(header)
     # Grab our test AstroPix4 hits.
-    readout = AstroPix4Readout(sample_readout_data)
+    readout = AstroPixReadout(sample_readout_data)
 
     # Write the output file.
     with tempfile.NamedTemporaryFile('wb', delete=True, delete_on_close=False) as output_file:

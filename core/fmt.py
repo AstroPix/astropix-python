@@ -258,9 +258,9 @@ class AstroPix4Hit(AstroPixHitBase):
         return self._repr(self._FIELD_NAMES)
 
 
-class AstroPix4Readout:
+class AstroPixReadout:
 
-    """Class describing an AstroPix4 readout, i.e., a full readout from the NEXYS board.
+    """Class describing an AstroPix readout, i.e., a full readout from the NEXYS board.
 
     This comes in the form of a fixed-length bytearray object that is padded at the
     end with a fixed byte (0xff).
