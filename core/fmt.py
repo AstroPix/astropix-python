@@ -189,6 +189,39 @@ class AstroPixHitBase:
         return f'{separator.join(vals)}\n'
 
 
+class AstroPix3Hit(AstroPixHitBase):
+
+    """Class describing an AstroPix3 hit.
+
+    .. warning::
+
+        This is copied from decode.py and totally untested.
+    """
+
+    SIZE = 5
+    FIELD_DICT = {
+        'chip_id': 5,
+        'payload': 3,
+        'column': 1,
+        'reserved1': 1,
+        'location': 6,
+        'timestamp': 8,
+        'reserved2': 4,
+        'tot_msb': 4,
+        'tot_lsb': 8
+    }
+    _FIELD_NAMES = tuple(FIELD_DICT.keys()) + ('tot', 'tot_us')
+    CLOCK_CYCLES_PER_US = 200.
+
+    def __init__(self, data: bytearray) -> None:
+        """Constructor.
+        """
+        super().__init__(data)
+        # Calculate the TOT in physical units.
+        self.tot = (self.tot_msb << 8) + self.tot_lsb
+        self.tot_us = self.tot / self.CLOCK_CYCLES_PER_US
+
+
 class AstroPix4Hit(AstroPixHitBase):
 
     """Class describing an AstroPix4 hit.
@@ -210,7 +243,7 @@ class AstroPix4Hit(AstroPixHitBase):
         'ts_tdc2': 5
     }
     _FIELD_NAMES = tuple(FIELD_DICT.keys()) + ('ts_dec1', 'ts_dec2', 'tot_us', 'timestamp')
-    CLOCK_CYCLES_PER_US = 20
+    CLOCK_CYCLES_PER_US = 20.
     CLOCK_ROLLOVER = 2**17
 
     def __init__(self, data: bytearray, timestamp: float = None) -> None:
