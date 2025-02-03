@@ -325,24 +325,45 @@ class AstroPix4Readout:
 class FileHeader:
 
     """Class describing a file header.
+
+    The content of the header can be literally anything that is json-serializable,
+    i.e., the only request that we make is that ``json.dumps(self._content)``
+    is not raising an exception.
+
+    The basic contract is that when the ``write()`` method is called we write
+    into the output binary file:
+
+    * the header magic word (``%APXDF`` for AstroPix Data Format);
+    * the length of the header content in bytes;
+    * the actual header content.
+
+    In the opposite direction, when the ``read()`` hook is called, we do:
+
+    * read the first small chunk of the binary file and make sure the magic word is correct;
+    * read the header length;
+    * read and deserialize the header conten, returning a full fledges ``FileHeader`` object.
+
+    Arguments
+    ---------
+    content : anything that is serializable
+        The header content.
     """
 
     MAGIC_WORD = '%APXDF'
     _HEADER_LENGTH_FMT = 'I'
     ENCODING = 'utf-8'
 
-    def __init__(self, info) -> None:
+    def __init__(self, content) -> None:
         """Constructor.
         """
-        self._info = info
+        self._content = content
 
     def write(self, output_file) -> None:
         """Serialize the header structure to an output binary file.
         """
         output_file.write(self.MAGIC_WORD.encode(self.ENCODING))
-        data = json.dumps(self._info).encode(self.ENCODING)
-        num_bytes = len(data)
-        output_file.write(struct.pack(self._HEADER_LENGTH_FMT, num_bytes))
+        data = json.dumps(self._content).encode(self.ENCODING)
+        output_file.write(struct.pack(self._HEADER_LENGTH_FMT, len(data)))
         output_file.write(data)
 
     @classmethod
@@ -352,26 +373,31 @@ class FileHeader:
         magic = input_file.read(len(cls.MAGIC_WORD)).decode(cls.ENCODING)
         if magic != cls.MAGIC_WORD:
             raise RuntimeError(f'Invalid magic word ({magic}), expected {cls.MAGIC_WORD}')
-        buf = input_file.read(struct.calcsize(cls._HEADER_LENGTH_FMT))
-        num_bytes = struct.unpack(cls._HEADER_LENGTH_FMT, buf)[0]
-        header_info = json.loads(input_file.read(num_bytes).decode(cls.ENCODING))
-        return cls(header_info)
+        header_length = input_file.read(struct.calcsize(cls._HEADER_LENGTH_FMT))
+        header_length = struct.unpack(cls._HEADER_LENGTH_FMT, header_length)[0]
+        content = json.loads(input_file.read(header_length).decode(cls.ENCODING))
+        return cls(content)
 
     def __eq__(self, other) -> bool:
         """Comparison operator---this is useful in the unit tests in order to make
         sure that the serialization/deserialization roundtrips.
         """
-        return self._info == other._info
+        return self._content == other._content
 
     def __str__(self) -> str:
         """String representation.
         """
-        return f'{self._info}'
+        return f'{self._content}'
 
 
 class AstroPixBinaryFile:
 
     """Class describing a binary file containing packets.
+
+    .. warning::
+
+        At this point this only supports input files. Shall we consider extending
+        the interface for writing output files as well?
     """
 
     def __init__(self, hit_class: type) -> None:
