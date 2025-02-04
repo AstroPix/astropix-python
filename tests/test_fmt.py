@@ -20,6 +20,7 @@
 import binascii
 import os
 import tempfile
+import time
 
 import pytest
 
@@ -116,7 +117,7 @@ def test_original_decoding():
 def test_new_decoding():
     """Test the new decoding stuff.
     """
-    readout = AstroPixReadout(sample_readout_data)
+    readout = AstroPixReadout(sample_readout_data, timestamp=time.time())
     print(readout)
     assert readout.num_hits() == 2
     for hit in readout.hits:
@@ -162,7 +163,7 @@ def test_file():
     header = FileHeader(dict(version=1, content='hits'))
     print(header)
     # Grab our test AstroPix4 hits.
-    readout = AstroPixReadout(sample_readout_data)
+    readout = AstroPixReadout(sample_readout_data, timestamp=time.time())
 
     # Write the output file.
     kwargs = dict(suffix=AstroPixBinaryFile._EXTENSION, delete_on_close=False, delete=True)
