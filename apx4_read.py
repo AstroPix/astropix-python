@@ -109,12 +109,12 @@ def main(args):
     # Catches other exceptions
     except Exception as e:
         logger.exception(f"Encountered Unexpected Exception! \n{e}")
-    finally:
-        output_file.close()
-        logger.info('Output file closed.')
-        if args.inject is not None: astro.stop_injection()   
-        astro.close_connection() # Closes SPI
-        logger.info("Program terminated successfully")
+
+    output_file.close()
+    logger.info('Output file closed.')
+    if args.inject is not None: astro.stop_injection()   
+    astro.close_connection() # Closes SPI
+    logger.info("Program terminated successfully")
     # END OF PROGRAM
 
     # Test: playback the file.
