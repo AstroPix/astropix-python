@@ -367,6 +367,31 @@ class astropixRun:
             return True
         else:
             return False
+        
+    def get_header_data(self):
+        """Return a dictionary with all the data for the data file header.
+        """
+        vdacs=['thpmos', 'cardConf2','vcasc2', 'BL', 'cardConf5', 'cardConf6','vminuspix','thpix']
+        vcardconfig = {}
+        for i,v in enumerate(vdacs):
+            vcardconfig[v] = self.vcard_vdac[i]
+        digitalconfig = {}
+        for key in self.asic.asic_config['digitalconfig']:
+                digitalconfig[key]=self.asic.asic_config['digitalconfig'][key][1]
+        biasconfig = {}
+        for key in self.asic.asic_config['biasconfig']:
+                biasconfig[key]=self.asic.asic_config['biasconfig'][key][1]
+        idacconfig = {}
+        for key in self.asic.asic_config['idacs']:
+                idacconfig[key]=self.asic.asic_config['idacs'][key][1]
+        if self.chipversion>2:
+            vdacconfig = {}
+            for key in self.asic.asic_config['vdacs']:
+                    vdacconfig[key]=self.asic.asic_config['vdacs'][key][1]
+        arrayconfig = {}
+        for key in self.asic.asic_config['recconfig']:
+                arrayconfig[key]=self.asic.asic_config['recconfig'][key][1]
+        return (vcardconfig, digitalconfig, biasconfig, idacconfig, vdacconfig, arrayconfig)
 
     def get_log_header(self):
         """
