@@ -21,6 +21,8 @@ import binascii
 import os
 import tempfile
 
+import pytest
+
 from core.decode import Decode
 from core.fmt import BitPattern, AstroPix4Hit, AstroPixReadout, FileHeader, \
     AstroPixBinaryFile, apxdf_to_csv
@@ -181,9 +183,10 @@ def test_file():
                 assert hit == readout.hits[i]
 
 
-# def test_csv_convert():
-#     """Read a sample .apx file and convert it to csv.
-#     """
-#     file_path = os.path.join(os.path.dirname(__file__), 'data', '20250204_144725_data.apx')
-#     file_path = apxdf_to_csv(file_path, AstroPix4Hit)
-#     print(file_path)
+@pytest.mark.skip
+def test_csv_convert():
+    """Read a sample .apx file and convert it to csv.
+    """
+    file_path = os.path.join(os.path.dirname(__file__), 'data', '20250204_144725_data.apx')
+    file_path = apxdf_to_csv(file_path, AstroPix4Hit)
+    assert isinstance(file_path, str)

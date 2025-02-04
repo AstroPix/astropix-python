@@ -87,6 +87,7 @@ class AstroPixHitBase:
 
     SIZE = None
     FIELD_DICT = None
+    _FIELD_NAMES = None
 
     def __init__(self, data: bytearray) -> None:
         """Constructor.
@@ -188,6 +189,26 @@ class AstroPixHitBase:
         vals = self._format_attributes(attrs, fmts)
         return f'{separator.join(vals)}\n'
 
+    @classmethod
+    def text_header(cls, fields=None, separator=',') -> str:
+        """Return a proper header for a text file representing a list of hits.
+        """
+        if fields is None:
+            fields = cls._FIELD_NAMES
+        return ','.join(fields)
+
+    def to_csv(self, fields=None) -> str:
+        """Return the hit representation in csv format.
+        """
+        if fields is None:
+            fields = self._FIELD_NAMES
+        return self._text(fields, fmts=None, separator=',')
+
+    def __str__(self) -> str:
+        """String formatting.
+        """
+        return self._repr(self._FIELD_NAMES)
+
 
 class AstroPix3Hit(AstroPixHitBase):
 
@@ -279,22 +300,6 @@ class AstroPix4Hit(AstroPixHitBase):
             The actual decimal value of the timestamp counter, in clock cycles.
         """
         return AstroPixHitBase.gray_to_decimal((ts_coarse << 3) + ts_fine)
-
-    @classmethod
-    def text_header(cls, fields=_FIELD_NAMES, separator=',') -> str:
-        """Return a proper header for a text file representing a list of hits.
-        """
-        return ','.join(fields)
-
-    def to_csv(self, fields=_FIELD_NAMES) -> str:
-        """Return the hit representation in csv format.
-        """
-        return self._text(fields, fmts=None, separator=',')
-
-    def __str__(self) -> str:
-        """String formatting.
-        """
-        return self._repr(self._FIELD_NAMES)
 
 
 class AstroPixReadout:
