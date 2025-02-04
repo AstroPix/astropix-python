@@ -310,6 +310,9 @@ class AstroPixReadout:
     ---------
     data : bytearray
         A full readout from a NEXYS board.
+
+    timestamp : float (optional)
+        A timestamp (s since the epoch) assigned by the hist machine. 
     """
 
     PADDING_BYTE = bytes.fromhex('ff')
@@ -320,7 +323,7 @@ class AstroPixReadout:
     HIT_TRAILER_LENGTH = len(HIT_TRAILER)
     HIT_LENGTH = HIT_HEADER_LENGTH + HIT_DATA_SIZE + HIT_TRAILER_LENGTH
 
-    def __init__(self, data: bytearray) -> None:
+    def __init__(self, data: bytearray, timestamp: int = None) -> None:
         """Constructor.
         """
         # Strip all the trailing padding bytes from the input bytearray object.
@@ -328,6 +331,7 @@ class AstroPixReadout:
         # Check that the length of the readout is a multiple of the frame length.
         if not len(self) % self.HIT_LENGTH == 0:
             raise RuntimeError(f'Readout length ({len(self)}) not a multiple of {self.HIT_LENGTH}')
+        self.timestamp = timestamp
         self.hits = self.__decode()
 
     def __decode(self, reverse: bool = True) -> list[AstroPix4Hit]:
@@ -359,7 +363,7 @@ class AstroPixReadout:
             if reverse:
                 hit_data = reverse_bit_order(hit_data)
             # Create a fully-fledged AstroPix4Hit object.
-            hits.append(AstroPix4Hit(hit_data))
+            hits.append(AstroPix4Hit(hit_data, self.timestamp))
             pos += self.HIT_LENGTH
         return hits
 
@@ -376,7 +380,7 @@ class AstroPixReadout:
     def __str__(self) -> str:
         """String formatting.
         """
-        return f'{self.__class__.__name__}({self.num_hits()} hits, {len(self)} bytes)'
+        return f'{self.__class__.__name__}({self.num_hits()} hits, {len(self)} bytes, timestamp = {self.timestamp} s)'
 
 
 class FileHeader:
