@@ -71,9 +71,9 @@ def playback_file(file_path: str, num_hits: int = 10) -> None:
         for i, hit in enumerate(input_file):
             if i < num_hits:
                 print(hit)
-            elif hit == num_hits:
+            elif i == num_hits:
                 print('...')
-        print(f'{i} hits found')
+        print(f'{i + 1} hits found')
 
 
 def main(args):
@@ -97,7 +97,7 @@ def main(args):
 
     # Setup the data acquisition.
     logger.info('Configuring the chip...')
-    astro = astropixRun(chipversion=args.chipVer, inject=args.inject)
+    astro = astropixRun(chipversion=chip_version, inject=args.inject)
     astro.asic_init(yaml=args.yaml, analog_col=args.analog)
     astro.init_voltages(vthreshold=args.threshold)
 
@@ -120,13 +120,10 @@ def main(args):
         astro.start_injection()
 
     # Save final configuration to output file
-    ymlpathout=args.outdir +"/"+args.yaml+"_"+start_datetime+".yml"
-    try:
-        astro.write_conf_to_yaml(ymlpathout)
-    except FileNotFoundError:
-        ypath = args.yaml.split('/')
-        ymlpathout=args.outdir+"/"+ypath[1]+"_"+start_datetime+".yml"
-        astro.write_conf_to_yaml(ymlpathout)
+    config_file_name = f'{args.yaml}_{start_datetime}.yml'
+    config_file_path = os.path.join(output_folder, config_file_name)
+    logger.info(f'Copying configuration to {config_file_path}...')
+    astro.write_conf_to_yaml(config_file_path)
 
     # Do we really need a second call to this?
     astro.dump_fpga()
@@ -182,6 +179,7 @@ def main(args):
     except KeyboardInterrupt:
         logger.info('Keyboard interupt, exiting...')
 
+    logger.info(f'Data acquisition interrupted after {num_readouts} readouts.')
     output_file.close()
     logger.info('Output file closed.')
 
