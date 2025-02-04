@@ -280,6 +280,12 @@ class AstroPix4Hit(AstroPixHitBase):
         """
         return AstroPixHitBase.gray_to_decimal((ts_coarse << 3) + ts_fine)
 
+    @classmethod
+    def text_header(cls, fields=_FIELD_NAMES, separator=',') -> str:
+        """Return a proper header for a text file representing a list of hits.
+        """
+        return ','.join(fields)
+
     def to_csv(self, fields=_FIELD_NAMES) -> str:
         """Return the hit representation in csv format.
         """
@@ -312,7 +318,7 @@ class AstroPixReadout:
         A full readout from a NEXYS board.
 
     timestamp : float (optional)
-        A timestamp (s since the epoch) assigned by the hist machine. 
+        A timestamp (s since the epoch) assigned by the hist machine.
     """
 
     PADDING_BYTE = bytes.fromhex('ff')
@@ -476,6 +482,8 @@ class AstroPixBinaryFile:
         The class representing the hit type encoded in the file, e.g., ``AstroPix4Hit``.
     """
 
+    _EXTENSION = '.apx'
+
     def __init__(self, hit_class: type) -> None:
         """Constructor.
         """
@@ -491,13 +499,15 @@ class AstroPixBinaryFile:
         file_path : str
             Path to the file to be read.
         """
-        logger.debug(f'Opening input packet file {file_path}...')
+        if not file_path.endswith(self._EXTENSION):
+            raise RuntimeError(f'Input file {file_path} has not the {self._EXTENSION} extension')
+        logger.info(f'Opening input packet file {file_path}...')
         with open(file_path, 'rb') as input_file:
             self._input_file = input_file
             self.header = FileHeader.read(self._input_file)
             yield self
             self._input_file = None
-        logger.debug(f'Input file {file_path} closed.')
+        logger.info(f'Input file {file_path} closed.')
 
     def __iter__(self) -> 'AstroPixBinaryFile':
         """Return the iterator object (self).
@@ -511,3 +521,27 @@ class AstroPixBinaryFile:
         if not data:
             raise StopIteration
         return self._hit_class(data)
+
+
+def _convert_apxdf(file_path: str, hit_class: type, converter: typing.Callable,
+                   header: str = None, output_file_path: str = None, open_mode: str = 'w',
+                   default_extension: str = None) -> str:
+    """Generic conversion factory for AstroPixBinaryFile objects.
+    """
+    if output_file_path is None and default_extension is not None:
+        output_file_path = file_path.replace('.apx', default_extension)
+    with AstroPixBinaryFile(hit_class).open(file_path) as input_file, \
+        open(output_file_path, open_mode) as output_file:
+        if header is not None:
+            output_file.write(header)
+        for hit in input_file:
+            output_file.write(converter(hit))
+    return output_file_path
+
+
+def apxdf_to_csv(file_path: str, hit_class: type = AstroPix4Hit,
+                 output_file_path: str = None) -> str:
+    """Convert an AstroPix binary file to csv.
+    """
+    header = f'# {AstroPix4Hit.text_header()}\n'
+    return _convert_apxdf(file_path, hit_class, hit_class.to_csv, header, output_file_path, 'w', '.csv')

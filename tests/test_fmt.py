@@ -18,10 +18,12 @@
 """
 
 import binascii
+import os
 import tempfile
 
 from core.decode import Decode
-from core.fmt import BitPattern, AstroPix4Hit, AstroPixReadout, FileHeader, AstroPixBinaryFile
+from core.fmt import BitPattern, AstroPix4Hit, AstroPixReadout, FileHeader, \
+    AstroPixBinaryFile, apxdf_to_csv
 
 
 # Mock data from a small test run with AstroPix4---the bytearray below should
@@ -135,7 +137,8 @@ def test_file_header():
     print(header)
 
     # Write the header to an output file.
-    with tempfile.NamedTemporaryFile('wb', delete=True, delete_on_close=False) as output_file:
+    kwargs = dict(suffix=AstroPixBinaryFile._EXTENSION, delete_on_close=False, delete=True)
+    with tempfile.NamedTemporaryFile('wb', **kwargs) as output_file:
         print(f'Writing header to {output_file.name}...')
         header.write(output_file)
         output_file.close()
@@ -160,7 +163,8 @@ def test_file():
     readout = AstroPixReadout(sample_readout_data)
 
     # Write the output file.
-    with tempfile.NamedTemporaryFile('wb', delete=True, delete_on_close=False) as output_file:
+    kwargs = dict(suffix=AstroPixBinaryFile._EXTENSION, delete_on_close=False, delete=True)
+    with tempfile.NamedTemporaryFile('wb', **kwargs) as output_file:
         print(f'Writing data to {output_file.name}...')
         header.write(output_file)
         for hit in readout.hits:
@@ -175,3 +179,11 @@ def test_file():
             for i, hit in enumerate(input_file):
                 print(hit)
                 assert hit == readout.hits[i]
+
+
+# def test_csv_convert():
+#     """Read a sample .apx file and convert it to csv.
+#     """
+#     file_path = os.path.join(os.path.dirname(__file__), 'data', '20250204_144725_data.apx')
+#     file_path = apxdf_to_csv(file_path, AstroPix4Hit)
+#     print(file_path)
