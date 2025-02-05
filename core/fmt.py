@@ -85,7 +85,8 @@ class AstroPixHitBase:
         The portion of a full AstroPix readout representing a single hit.
     """
 
-    SIZE = None
+    READ_SIZE = None
+    WRITE_SIZE = None
     FIELD_DICT = None
     _FIELD_NAMES = None
 
@@ -103,7 +104,7 @@ class AstroPixHitBase:
             self.__setattr__(name, bit_pattern[pos:pos + width])
             pos += width
 
-    def write(self, otuput_file: typing.BinaryIO) -> None:
+    def write(self, output_file: typing.BinaryIO) -> None:
         """Write the binary data to a file.
 
         Arguments
@@ -111,7 +112,7 @@ class AstroPixHitBase:
         output_file : BinaryIO
             A file object opened in "wb" mode.
         """
-        otuput_file.write(self._data)
+        output_file.write(self._data)
 
     def __eq__(self, other: 'AstroPixHitBase') -> bool:
         """Comparison operator---this is handy in the unit tests.
@@ -219,7 +220,8 @@ class AstroPix3Hit(AstroPixHitBase):
         This is copied from decode.py and totally untested.
     """
 
-    SIZE = 5
+    READ_SIZE = 5
+    WRITE_SIZE = READ_SIZE
     FIELD_DICT = {
         'chip_id': 5,
         'payload': 3,
@@ -248,7 +250,12 @@ class AstroPix4Hit(AstroPixHitBase):
     """Class describing an AstroPix4 hit.
     """
 
-    SIZE = 8
+    READ_SIZE = 8
+    _TRIGGER_ID_FMT = 'L'
+    _TRIGGER_ID_SIZE = struct.calcsize(_TRIGGER_ID_FMT)
+    _TIMESTAMP_FMT = 'Q'
+    _TIMESTAMP_SIZE = struct.calcsize(_TIMESTAMP_FMT)
+    WRITE_SIZE = READ_SIZE + _TRIGGER_ID_SIZE + _TIMESTAMP_SIZE
     FIELD_DICT = {
         'chip_id': 5,
         'payload': 3,
@@ -263,6 +270,7 @@ class AstroPix4Hit(AstroPixHitBase):
         'ts_fine2': 3,
         'ts_tdc2': 5
     }
+   
     _FIELD_NAMES = tuple(FIELD_DICT.keys()) + ('ts_dec1', 'ts_dec2', 'tot_us', 'trigger_id', 'timestamp')
     CLOCK_CYCLES_PER_US = 20.
     CLOCK_ROLLOVER = 2**17
@@ -302,6 +310,29 @@ class AstroPix4Hit(AstroPixHitBase):
         """
         return AstroPixHitBase.gray_to_decimal((ts_coarse << 3) + ts_fine)
 
+    def write(self, output_file: typing.BinaryIO) -> None:
+        """Overloaded method, since we want to write additional fields.
+
+        Arguments
+        ---------
+        output_file : BinaryIO
+            A file object opened in "wb" mode.
+        """
+        output_file.write(self._data)
+        output_file.write(struct.pack(self._TRIGGER_ID_FMT, self.trigger_id))
+        output_file.write(struct.pack(self._TIMESTAMP_FMT, self.timestamp))
+
+    @classmethod
+    def from_file_data(cls, data) -> 'AstroPix4Hit':
+        """Read a hit from an input binary file.
+        """
+        pos = cls.READ_SIZE
+        trigger_id = struct.unpack(cls._TRIGGER_ID_FMT, data[pos:pos + cls._TRIGGER_ID_SIZE])
+        pos += cls._TRIGGER_ID_SIZE
+        timestamp = struct.unpack(cls._TIMESTAMP_FMT, data[pos:pos + cls._TIMESTAMP_SIZE])
+        data = data[:cls.READ_SIZE]
+        return cls(data, trigger_id, timestamp)
+
 
 class AstroPixReadout:
 
@@ -333,7 +364,7 @@ class AstroPixReadout:
     PADDING_BYTE = bytes.fromhex('ff')
     HIT_HEADER = bytes.fromhex('bcbc')
     HIT_TRAILER = bytes.fromhex('bcbcbcbcbcbc')
-    HIT_DATA_SIZE = AstroPix4Hit.SIZE
+    HIT_DATA_SIZE = AstroPix4Hit.READ_SIZE
     HIT_HEADER_LENGTH = len(HIT_HEADER)
     HIT_TRAILER_LENGTH = len(HIT_TRAILER)
     HIT_LENGTH = HIT_HEADER_LENGTH + HIT_DATA_SIZE + HIT_TRAILER_LENGTH
@@ -528,10 +559,10 @@ class AstroPixBinaryFile:
     def __next__(self) -> AstroPixHitBase:
         """Read the next packet in the buffer.
         """
-        data = self._input_file.read(self._hit_class.SIZE)
+        data = self._input_file.read(self._hit_class.WRITE_SIZE)
         if not data:
             raise StopIteration
-        return self._hit_class(data)
+        return self._hit_class.from_file_data(data)
 
 
 def _convert_apxdf(file_path: str, hit_class: type, converter: typing.Callable,

@@ -172,7 +172,7 @@ def main(args):
             if readout_data:
                 num_readouts += 1
                 _show = num_readouts % args.prescale == 0
-                readout = AstroPixReadout(readout_data, num_readouts, time.time())
+                readout = AstroPixReadout(readout_data, num_readouts, time.time_ns())
                 if _show:
                     print(f'{num_readouts} readouts acquired, last is {readout}.')
                 for i, hit in enumerate(readout.hits):
