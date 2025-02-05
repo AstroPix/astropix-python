@@ -79,6 +79,17 @@ class AstroPixHitBase:
     fields are arbitrary subsets of a multi-byte word, it seemed more naturale to
     describe the hit as a sequence of fields, each one with its own length in bits.
 
+    .. warning::
+
+        In order to support the addition of a sequential trigger identitier and
+        a timestamp (both assigned by the DAQ host machine) in the AstroPix4 setup,
+        we make an explicit distinction between the size of the hit as enclosed in
+        a readout from the NEXYS board (``READ_SIZE``), and that of a hit that
+        gets written in an output binary file (``WRITE_SIZE``). Subclasses are
+        reponsible for setting sensible values for the ``READ_SIZE`` and ``WRITE_SIZE``,
+        as well as for overloading the ``write()`` and ``from_file_data()`` methods
+        to handle the additional fields that need to be written and/or read.
+
     Arguments
     ---------
     data : bytearray
@@ -107,12 +118,32 @@ class AstroPixHitBase:
     def write(self, output_file: typing.BinaryIO) -> None:
         """Write the binary data to a file.
 
+        Subclasses can overload this method when it is necessary to add more stuff
+        (e.g., a trigger identifier, or a timestamp) to the binary blob coming
+        from the NEXYS board.
+
         Arguments
         ---------
         output_file : BinaryIO
             A file object opened in "wb" mode.
         """
         output_file.write(self._data)
+
+    @classmethod
+    def from_file_data(cls, data: bytes) -> 'AstroPixHitBase':
+        """Read a hit from an input binary file.
+
+        By default this is basically calling the class constructor, but when
+        ``READ_SIZE`` and ``WRITE_SIZE`` are different because ``write()`` is doing
+        something non-trivial, then this method should be overloaded to do something
+        sensible with the additional bytes.
+
+        Arguments
+        ---------
+        data : bytes
+            The block of binary data (of size ``cls.WRITE_SIZE``) from the binary file.
+        """
+        return cls(data)
 
     def __eq__(self, other: 'AstroPixHitBase') -> bool:
         """Comparison operator---this is handy in the unit tests.
@@ -280,8 +311,8 @@ class AstroPix4Hit(AstroPixHitBase):
         """
         super().__init__(data)
         # Calculate the values of the two timestamps in clock cycles.
-        self.ts_dec1 = self._compose_timestamp(self.ts_coarse1, self.ts_fine1)
-        self.ts_dec2 = self._compose_timestamp(self.ts_coarse2, self.ts_fine2)
+        self.ts_dec1 = self._compose_ts(self.ts_coarse1, self.ts_fine1)
+        self.ts_dec2 = self._compose_ts(self.ts_coarse2, self.ts_fine2)
         # Take into account possible rollovers.
         if self.ts_dec2 < self.ts_dec1:
             self.ts_dec2 += self.CLOCK_ROLLOVER
@@ -291,7 +322,7 @@ class AstroPix4Hit(AstroPixHitBase):
         self.timestamp = timestamp
 
     @staticmethod
-    def _compose_timestamp(ts_coarse: int, ts_fine: int) -> int:
+    def _compose_ts(ts_coarse: int, ts_fine: int) -> int:
         """Compose the actual decimal representation of the timestamp counter,
         putting together the coarse and fine counters (in Gray code).
 
@@ -311,7 +342,11 @@ class AstroPix4Hit(AstroPixHitBase):
         return AstroPixHitBase.gray_to_decimal((ts_coarse << 3) + ts_fine)
 
     def write(self, output_file: typing.BinaryIO) -> None:
-        """Overloaded method, since we want to write additional fields.
+        """Overloaded method.
+
+        This is the place where, in addition to the 8 bytes of binary data from the
+        NEXYS board, we do write the trigger identifier and the timestamp assigned
+        by the DAQ host machine.
 
         Arguments
         ---------
@@ -323,8 +358,16 @@ class AstroPix4Hit(AstroPixHitBase):
         output_file.write(struct.pack(self._TIMESTAMP_FMT, self.timestamp))
 
     @classmethod
-    def from_file_data(cls, data) -> 'AstroPix4Hit':
-        """Read a hit from an input binary file.
+    def from_file_data(cls, data: bytes) -> 'AstroPix4Hit':
+        """Overloaded method.
+
+        This is where we unpack the trigger identifier and the timestamp assigned
+        by the DAQ host machine before we initialize the hit object.
+
+        Arguments
+        ---------
+        data : bytes
+            The block of binary data from the binary file.
         """
         pos = cls.READ_SIZE
         trigger_id = struct.unpack(cls._TRIGGER_ID_FMT, data[pos:pos + cls._TRIGGER_ID_SIZE])

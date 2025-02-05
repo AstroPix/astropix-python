@@ -62,22 +62,6 @@ def setup_logger(level: str, file_path: str = None):
     return logger
 
 
-def playback_file(file_path: str, num_hits: int = 10) -> None:
-    """Small test code to playback a file.
-
-    Move this to the unit tests!
-    """
-    with AstroPixBinaryFile(AstroPix4Hit).open(file_path) as input_file:
-        print(f'\nStarting playback of binary file {file_path}...')
-        print(f'File header: {input_file.header}')
-        for i, hit in enumerate(input_file):
-            if i < num_hits:
-                print(hit)
-            elif i == num_hits:
-                print('...')
-        print(f'{i + 1} hits found')
-
-
 def main(args):
     """Configure and run an AstroPix 4 chip.
     """

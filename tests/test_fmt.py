@@ -117,7 +117,7 @@ def test_original_decoding():
 def test_new_decoding():
     """Test the new decoding stuff.
     """
-    readout = AstroPixReadout(sample_readout_data, timestamp=time.time())
+    readout = AstroPixReadout(sample_readout_data, trigger_id=0, timestamp=time.time_ns())
     print(readout)
     assert readout.num_hits() == 2
     for hit in readout.hits:
@@ -163,7 +163,7 @@ def test_file():
     header = FileHeader(dict(version=1, content='hits'))
     print(header)
     # Grab our test AstroPix4 hits.
-    readout = AstroPixReadout(sample_readout_data, timestamp=time.time())
+    readout = AstroPixReadout(sample_readout_data, trigger_id=0, timestamp=time.time_ns())
 
     # Write the output file.
     kwargs = dict(suffix=AstroPixBinaryFile._EXTENSION, delete_on_close=False, delete=True)
@@ -183,6 +183,20 @@ def test_file():
                 print(hit)
                 assert hit == readout.hits[i]
 
+
+def test_playback(num_hits: int = 10):
+    """Test the full playback of a real file.
+    """
+    file_path = os.path.join(os.path.dirname(__file__), 'data', '20250205_094324_data.apx')
+    with AstroPixBinaryFile(AstroPix4Hit).open(file_path) as input_file:
+        print(f'\nStarting playback of binary file {file_path}...')
+        print(f'File header: {input_file.header}')
+        for i, hit in enumerate(input_file):
+            if i < num_hits:
+                print(hit)
+            elif i == num_hits:
+                print('...')
+        print(f'{i + 1} hits found')
 
 @pytest.mark.skip
 def test_csv_convert():
