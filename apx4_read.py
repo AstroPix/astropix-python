@@ -20,7 +20,7 @@ import time
 import logging
 import argparse
 
-from core.fmt import AstroPixReadout, FileHeader, AstroPixBinaryFile, AstroPix4Hit
+from core.fmt import AstroPixReadout, FileHeader, AstroPixBinaryFile, AstroPix4Hit, apxdf_to_csv
 
 
 
@@ -64,6 +64,8 @@ def setup_logger(level: str, file_path: str = None):
 
 def playback_file(file_path: str, num_hits: int = 10) -> None:
     """Small test code to playback a file.
+
+    Move this to the unit tests!
     """
     with AstroPixBinaryFile(AstroPix4Hit).open(file_path) as input_file:
         print(f'\nStarting playback of binary file {file_path}...')
@@ -169,9 +171,11 @@ def main(args):
             readout_data = astro.get_readout()
             if readout_data:
                 readout = AstroPixReadout(readout_data, time.time())
-                logger.debug(readout)
+                if args.showhits:
+                    print(readout)
                 for hit in readout.hits:
-                    logger.debug(hit)
+                    if args.showhits:
+                        print(hit)
                     hit.write(output_file)
                 num_readouts += 1
 
@@ -189,32 +193,37 @@ def main(args):
     astro.close_connection()
     logger.info("Program terminated successfully!")
 
-    playback_file(data_file_path)
-
-
+    if args.saveascsv:
+        file_path = apxdf_to_csv(data_file_path, AstroPix4Hit)
 
 
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Astropix 4 simple run control')
     parser.add_argument('-o', '--outdir', default='.', required=False,
-                    help='Output Directory for all data files')
+                        help='Output Directory for all data files')
     parser.add_argument('-y', '--yaml', action='store', required=False, type=str, default = 'testconfig',
-                    help = 'filepath (in config/ directory) .yml file containing chip configuration. Default: config/testconfig.yml (All pixels off)')
+                        help = 'filepath (in config/ directory) .yml file containing chip configuration. '
+                               'Default: config/testconfig.yml (All pixels off)')
+    parser.add_argument('-s', '--showhits', action='store_true', default=False, required=False,
+                        help='Display hits in real time during data taking')
+    parser.add_argument('-c', '--saveascsv', action='store_true',  default=False, required=False,
+                        help='Convert output file to csv.')
     parser.add_argument('-i', '--inject', action='store', default=None, type=int, nargs=2,
-                    help =  'Turn on injection in the given row and column. Default: No injection')
+                        help =  'Turn on injection in the given row and column. Default: No injection')
     parser.add_argument('-v','--vinj', action='store', default = None, type=float,
-                    help = 'Specify injection voltage (in mV). DEFAULT None (uses value in yml)')
+                        help = 'Specify injection voltage (in mV). DEFAULT None (uses value in yml)')
     parser.add_argument('-a', '--analog', action='store', required=False, type=int, default = 0,
-                    help = 'Turn on analog output in the given column. Default: Column 0.')
+                        help = 'Turn on analog output in the given column. Default: Column 0.')
     parser.add_argument('-t', '--threshold', type = float, action='store', default=None,
-                    help = 'Threshold voltage for digital ToT (in mV). DEFAULT value in yml OR 100mV if voltagecard not in yml')
+                        help = 'Threshold voltage for digital ToT (in mV). DEFAULT value in yml OR 100mV if voltagecard not in yml')
     parser.add_argument('-r', '--maxruns', type=int, action='store', default=None,
-                    help = 'Maximum number of readouts')
+                        help = 'Maximum number of readouts')
     parser.add_argument('-M', '--maxtime', type=float, action='store', default=None,
-                    help = 'Maximum run time (in minutes)')
+                        help = 'Maximum run time (in minutes)')
     parser.add_argument('-L', '--loglevel', type=str, choices = ['D', 'I', 'E', 'W', 'C'], action="store", default='I',
-                    help='Set loglevel used. Options: D - debug, I - info, E - error, W - warning, C - critical. DEFAULT: I')
+                        help='Set loglevel used. '
+                             'Options: D - debug, I - info, E - error, W - warning, C - critical. DEFAULT: I')
 
     parser.add_argument
     args = parser.parse_args()
