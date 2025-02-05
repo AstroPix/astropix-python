@@ -251,9 +251,9 @@ class AstroPix4Hit(AstroPixHitBase):
     """
 
     READ_SIZE = 8
-    _TRIGGER_ID_FMT = 'L'
+    _TRIGGER_ID_FMT = '<L'
     _TRIGGER_ID_SIZE = struct.calcsize(_TRIGGER_ID_FMT)
-    _TIMESTAMP_FMT = 'Q'
+    _TIMESTAMP_FMT = '<Q'
     _TIMESTAMP_SIZE = struct.calcsize(_TIMESTAMP_FMT)
     WRITE_SIZE = READ_SIZE + _TRIGGER_ID_SIZE + _TIMESTAMP_SIZE
     FIELD_DICT = {
@@ -270,12 +270,12 @@ class AstroPix4Hit(AstroPixHitBase):
         'ts_fine2': 3,
         'ts_tdc2': 5
     }
-   
+
     _FIELD_NAMES = tuple(FIELD_DICT.keys()) + ('ts_dec1', 'ts_dec2', 'tot_us', 'trigger_id', 'timestamp')
     CLOCK_CYCLES_PER_US = 20.
     CLOCK_ROLLOVER = 2**17
 
-    def __init__(self, data: bytearray, trigger_id: int = None, timestamp: float = None) -> None:
+    def __init__(self, data: bytearray, trigger_id: int = None, timestamp: int = None) -> None:
         """Constructor.
         """
         super().__init__(data)
@@ -357,8 +357,8 @@ class AstroPixReadout:
     trigger_id : int (optional)
         A sequential id for the readout that can be propagated to child hits.
 
-    timestamp : float (optional)
-        A timestamp (s since the epoch) assigned by the hist machine.
+    timestamp : int (optional)
+        A timestamp (ns since the epoch, from time.time_ns()) assigned by the host machine.
     """
 
     PADDING_BYTE = bytes.fromhex('ff')
@@ -369,7 +369,7 @@ class AstroPixReadout:
     HIT_TRAILER_LENGTH = len(HIT_TRAILER)
     HIT_LENGTH = HIT_HEADER_LENGTH + HIT_DATA_SIZE + HIT_TRAILER_LENGTH
 
-    def __init__(self, data: bytearray, trigger_id: int = None, timestamp: float = None) -> None:
+    def __init__(self, data: bytearray, trigger_id: int = None, timestamp: int = None) -> None:
         """Constructor.
         """
         # Strip all the trailing padding bytes from the input bytearray object.
@@ -428,7 +428,7 @@ class AstroPixReadout:
         """String formatting.
         """
         return f'{self.__class__.__name__}({self.num_hits()} hits, {len(self)} bytes, ' \
-               f'trigger_id = {self.trigger_id}, timestamp = {self.timestamp} s)'
+               f'trigger_id = {self.trigger_id}, timestamp = {self.timestamp} ns)'
 
 
 class FileHeader:
