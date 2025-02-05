@@ -22,7 +22,8 @@ import os
 import tempfile
 import time
 
-import pytest
+import matplotlib.pyplot as plt
+import numpy as np
 
 from core.decode import Decode
 from core.fmt import BitPattern, AstroPix4Hit, AstroPixReadout, FileHeader, \
@@ -199,6 +200,24 @@ def test_playback(num_hits: int = 10):
         print(f'{i + 1} hits found')
 
 
+def test_plot_file():
+    """Basic test plotting the content of the sample binary file.
+    """
+    file_path = os.path.join(os.path.dirname(__file__), 'data', '20250205_094324_data.csv')
+    chip_id, payload, row, column, ts_neg1, ts_coarse1, ts_fine1, ts_tdc1, ts_neg2, \
+        ts_coarse2, ts_fine2, ts_tdc2, ts_dec1, ts_dec2, tot_us, trigger_id, timestamp = \
+        np.loadtxt(file_path, delimiter=',', unpack=True)
+    dt = np.diff(timestamp) / 1.e6
+
+    plt.figure('TOT')
+    plt.hist(tot_us, bins=25)
+    plt.xlabel('TOT [$\\mu$s]')
+
+    plt.figure('Time differences')
+    plt.hist(dt, bins=25)
+    plt.xlabel('$\\Delta$T [ms]')
+
+
 def test_csv_convert():
     """Read a sample .apx file and convert it to csv.
     """
@@ -209,3 +228,8 @@ def test_csv_convert():
         print(f'Converting {file_path} to {output_file.name}...')
         out = apxdf_to_csv(file_path, AstroPix4Hit, output_file_path=output_file.name)
         assert out == output_file.name
+
+
+if __name__ == '__main__':
+    test_plot_file()
+    plt.show()
