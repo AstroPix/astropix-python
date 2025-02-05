@@ -263,11 +263,11 @@ class AstroPix4Hit(AstroPixHitBase):
         'ts_fine2': 3,
         'ts_tdc2': 5
     }
-    _FIELD_NAMES = tuple(FIELD_DICT.keys()) + ('ts_dec1', 'ts_dec2', 'tot_us', 'timestamp')
+    _FIELD_NAMES = tuple(FIELD_DICT.keys()) + ('ts_dec1', 'ts_dec2', 'tot_us', 'trigger_id', 'timestamp')
     CLOCK_CYCLES_PER_US = 20.
     CLOCK_ROLLOVER = 2**17
 
-    def __init__(self, data: bytearray, timestamp: float = None) -> None:
+    def __init__(self, data: bytearray, trigger_id: int = None, timestamp: float = None) -> None:
         """Constructor.
         """
         super().__init__(data)
@@ -279,6 +279,7 @@ class AstroPix4Hit(AstroPixHitBase):
             self.ts_dec2 += self.CLOCK_ROLLOVER
         # Calculate the actual TOT in us.
         self.tot_us = (self.ts_dec2 - self.ts_dec1) / self.CLOCK_CYCLES_PER_US
+        self.trigger_id = trigger_id
         self.timestamp = timestamp
 
     @staticmethod
@@ -322,6 +323,9 @@ class AstroPixReadout:
     data : bytearray
         A full readout from a NEXYS board.
 
+    trigger_id : int (optional)
+        A sequential id for the readout that can be propagated to child hits.
+
     timestamp : float (optional)
         A timestamp (s since the epoch) assigned by the hist machine.
     """
@@ -334,7 +338,7 @@ class AstroPixReadout:
     HIT_TRAILER_LENGTH = len(HIT_TRAILER)
     HIT_LENGTH = HIT_HEADER_LENGTH + HIT_DATA_SIZE + HIT_TRAILER_LENGTH
 
-    def __init__(self, data: bytearray, timestamp: int = None) -> None:
+    def __init__(self, data: bytearray, trigger_id: int = None, timestamp: float = None) -> None:
         """Constructor.
         """
         # Strip all the trailing padding bytes from the input bytearray object.
@@ -342,6 +346,7 @@ class AstroPixReadout:
         # Check that the length of the readout is a multiple of the frame length.
         if not len(self) % self.HIT_LENGTH == 0:
             raise RuntimeError(f'Readout length ({len(self)}) not a multiple of {self.HIT_LENGTH}')
+        self.trigger_id = trigger_id
         self.timestamp = timestamp
         self.hits = self.__decode()
 
@@ -374,7 +379,7 @@ class AstroPixReadout:
             if reverse:
                 hit_data = reverse_bit_order(hit_data)
             # Create a fully-fledged AstroPix4Hit object.
-            hits.append(AstroPix4Hit(hit_data, self.timestamp))
+            hits.append(AstroPix4Hit(hit_data, self.trigger_id, self.timestamp))
             pos += self.HIT_LENGTH
         return hits
 
@@ -391,7 +396,8 @@ class AstroPixReadout:
     def __str__(self) -> str:
         """String formatting.
         """
-        return f'{self.__class__.__name__}({self.num_hits()} hits, {len(self)} bytes, timestamp = {self.timestamp} s)'
+        return f'{self.__class__.__name__}({self.num_hits()} hits, {len(self)} bytes, ' \
+               f'trigger_id = {self.trigger_id}, timestamp = {self.timestamp} s)'
 
 
 class FileHeader:
@@ -506,7 +512,7 @@ class AstroPixBinaryFile:
         """
         if not file_path.endswith(self._EXTENSION):
             raise RuntimeError(f'Input file {file_path} has not the {self._EXTENSION} extension')
-        logger.info(f'Opening input packet file {file_path}...')
+        logger.info(f'Opening input file {file_path}...')
         with open(file_path, 'rb') as input_file:
             self._input_file = input_file
             self.header = FileHeader.read(self._input_file)
@@ -535,12 +541,14 @@ def _convert_apxdf(file_path: str, hit_class: type, converter: typing.Callable,
     """
     if output_file_path is None and default_extension is not None:
         output_file_path = file_path.replace('.apx', default_extension)
+    logger.info(f'Converting AstroPix file to {output_file_path}...')
     with AstroPixBinaryFile(hit_class).open(file_path) as input_file, \
         open(output_file_path, open_mode) as output_file:
         if header is not None:
             output_file.write(header)
-        for hit in input_file:
+        for i, hit in enumerate(input_file):
             output_file.write(converter(hit))
+    logger.info(f'Done, {i + 1} hit(s) written')
     return output_file_path
 
 

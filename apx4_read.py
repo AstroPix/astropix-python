@@ -146,7 +146,7 @@ def main(args):
     # This is an area where we might want to put some thought as to what the most
     # sensible way to handle things is.
     header_data = {}
-    header_data['conf'] = astro.get_header_data()
+    header_data['configuration'] = astro.get_header_data()
     header_data['args'] = args.__dict__
     header = FileHeader(header_data)
 
@@ -170,31 +170,32 @@ def main(args):
             # Go ahead and readout data.
             readout_data = astro.get_readout()
             if readout_data:
-                readout = AstroPixReadout(readout_data, time.time())
-                if args.showhits:
-                    print(readout)
-                for hit in readout.hits:
-                    if args.showhits:
-                        print(hit)
-                    hit.write(output_file)
                 num_readouts += 1
+                _show = num_readouts % args.prescale == 0
+                readout = AstroPixReadout(readout_data, num_readouts, time.time())
+                if _show:
+                    print(f'{num_readouts} readouts acquired, last is {readout}.')
+                for i, hit in enumerate(readout.hits):
+                    if _show:
+                        print(f'Hit {i} -> {hit}')
+                    hit.write(output_file)
 
     # Ends program cleanly when a keyboard interupt is sent.
     except KeyboardInterrupt:
         logger.info('Keyboard interupt, exiting...')
+    finally:
+        logger.info(f'Data acquisition interrupted after {num_readouts} readouts.')
+        output_file.close()
+        logger.info('Output file closed.')
 
-    logger.info(f'Data acquisition interrupted after {num_readouts} readouts.')
-    output_file.close()
-    logger.info('Output file closed.')
+        # Teardown the hardware.
+        if args.inject is not None:
+            astro.stop_injection()
+        astro.close_connection()
+        logger.info("Program terminated successfully!")
 
-    # Teardown the hardware.
-    if args.inject is not None:
-        astro.stop_injection()
-    astro.close_connection()
-    logger.info("Program terminated successfully!")
-
-    if args.saveascsv:
-        file_path = apxdf_to_csv(data_file_path, AstroPix4Hit)
+        if args.saveascsv:
+            file_path = apxdf_to_csv(data_file_path, AstroPix4Hit)
 
 
 if __name__ == "__main__":
@@ -205,9 +206,9 @@ if __name__ == "__main__":
     parser.add_argument('-y', '--yaml', action='store', required=False, type=str, default = 'testconfig',
                         help = 'filepath (in config/ directory) .yml file containing chip configuration. '
                                'Default: config/testconfig.yml (All pixels off)')
-    parser.add_argument('-s', '--showhits', action='store_true', default=False, required=False,
-                        help='Display hits in real time during data taking')
-    parser.add_argument('-c', '--saveascsv', action='store_true',  default=False, required=False,
+    parser.add_argument('-p', '--prescale', type=int, default=25,
+                        help='Prescale factor for displaying hits in real time during data taking')
+    parser.add_argument('-c', '--saveascsv', action='store_true',  default=False,
                         help='Convert output file to csv.')
     parser.add_argument('-i', '--inject', action='store', default=None, type=int, nargs=2,
                         help =  'Turn on injection in the given row and column. Default: No injection')
