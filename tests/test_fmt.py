@@ -198,10 +198,14 @@ def test_playback(num_hits: int = 10):
                 print('...')
         print(f'{i + 1} hits found')
 
-@pytest.mark.skip
+
 def test_csv_convert():
     """Read a sample .apx file and convert it to csv.
     """
-    file_path = os.path.join(os.path.dirname(__file__), 'data', '20250204_144725_data.apx')
-    file_path = apxdf_to_csv(file_path, AstroPix4Hit)
-    assert isinstance(file_path, str)
+    file_path = os.path.join(os.path.dirname(__file__), 'data', '20250205_094324_data.apx')
+    kwargs = dict(suffix='.csv', delete_on_close=False, delete=True)
+    with tempfile.NamedTemporaryFile('w', **kwargs) as output_file:
+        output_file.close()
+        print(f'Converting {file_path} to {output_file.name}...')
+        out = apxdf_to_csv(file_path, AstroPix4Hit, output_file_path=output_file.name)
+        assert out == output_file.name
