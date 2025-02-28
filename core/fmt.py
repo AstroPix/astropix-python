@@ -426,11 +426,11 @@ class AstroPixReadout:
         # Strip all the trailing padding bytes from the input bytearray object.
         self._data = data.rstrip(self.PADDING_BYTE)
         # Check that the length of the readout is a multiple of the frame length.
-        if not len(self) % self.HIT_LENGTH == 0:
-            raise RuntimeError(f'Readout length ({len(self)}) not a multiple of {self.HIT_LENGTH}')
+        #if not len(self) % self.HIT_LENGTH == 0:
+        #    raise RuntimeError(f'Readout length ({len(self)}) not a multiple of {self.HIT_LENGTH}')
         self.trigger_id = trigger_id
         self.timestamp = timestamp
-        self.hits = self.__decode()
+        #self.hits = self.__decode()
 
     def __decode(self, reverse: bool = True) -> list[AstroPix4Hit]:
         """Decode the underlying data and turn them into a list of hits.
@@ -475,17 +475,12 @@ class AstroPixReadout:
         """
         output_file.write(self.READOUT_HEADER)
         # This is the number of bytes in the readout, not including the header.
-        num_bytes = len(data) + self._READOUT_LENGTH_SIZE + self._TRIGGER_ID_SIZE + \
+        num_bytes = len(self._data) + self._READOUT_LENGTH_SIZE + self._TRIGGER_ID_SIZE + \
             self._TIMESTAMP_SIZE
         output_file.write(struct.pack(self._READOUT_LENGTH_FMT, num_bytes))
         output_file.write(self._data)
         output_file.write(struct.pack(self._TRIGGER_ID_FMT, self.trigger_id))
         output_file.write(struct.pack(self._TIMESTAMP_FMT, self.timestamp))
-
-    def num_hits(self) -> int:
-        """Return the number of hits in the readout.
-        """
-        return len(self) // self.HIT_LENGTH
 
     def __len__(self) -> int:
         """Return the length of the underlying data in bytes.
@@ -495,7 +490,7 @@ class AstroPixReadout:
     def __str__(self) -> str:
         """String formatting.
         """
-        return f'{self.__class__.__name__}({self.num_hits()} hits, {len(self)} bytes, ' \
+        return f'{self.__class__.__name__}({len(self)} bytes, ' \
                f'trigger_id = {self.trigger_id}, timestamp = {self.timestamp} ns)'
 
 
