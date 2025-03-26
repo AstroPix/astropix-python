@@ -53,37 +53,6 @@ class Decode:
             bits >>= 1
         return gray
 
-        self._header = set()
-        self._header_rev = set()
-        self._gen_header()
-
-    def _gen_header(self):
-        """
-        Pregenerate header bytes for nchips in a row
-        """
-
-        self._header = set()
-        self._header_rev = set()
-
-        for i in range(self._nchips):
-            id = (i << self._idbits) + self._bytesperhit - 1
-            self._header.add(id)
-
-            id_rev = int(f'{id:08b}'[::-1], 2)
-            self._header_rev.add(id_rev)
-    
-    def gray_to_dec(self, gray: int) -> int:
-        """
-        Decode Gray code to decimal
-        :param gray: Gray code
-        :returns: Decoded decimal
-        """
-        bits = gray >> 1
-        while bits:
-            gray ^= bits
-            bits >>= 1
-        return gray
-    
     def reverse_bitorder(self, data: bytearray) -> bytearray:
         reversed_data = bytearray()
 
