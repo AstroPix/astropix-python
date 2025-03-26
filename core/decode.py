@@ -40,6 +40,37 @@ class Decode:
 
             id_rev = int(f'{id:08b}'[::-1], 2)
             self._header_rev.add(id_rev)
+
+    def gray_to_dec(self, gray: int) -> int:
+        """
+        Decode Gray code to decimal
+        :param gray: Gray code
+        :returns: Decoded decimal
+        """
+        bits = gray >> 1
+        while bits:
+            gray ^= bits
+            bits >>= 1
+        return gray
+
+        self._header = set()
+        self._header_rev = set()
+        self._gen_header()
+
+    def _gen_header(self):
+        """
+        Pregenerate header bytes for nchips in a row
+        """
+
+        self._header = set()
+        self._header_rev = set()
+
+        for i in range(self._nchips):
+            id = (i << self._idbits) + self._bytesperhit - 1
+            self._header.add(id)
+
+            id_rev = int(f'{id:08b}'[::-1], 2)
+            self._header_rev.add(id_rev)
     
     def gray_to_dec(self, gray: int) -> int:
         """
@@ -80,9 +111,9 @@ class Decode:
         bytesperhit = self._bytesperhit
 
         while i < length:
-            if readout[i] not in header: 
+            if readout[i] not in header:
                 i += 1
-            else:                
+            else:
                 if i + bytesperhit <= length:
                     if reverse_bitorder:
                         hitlist.append(self.reverse_bitorder(readout[i:i + bytesperhit]))
@@ -137,13 +168,13 @@ class Decode:
                     "Header: ChipId: %d\tPayload: %d\t"
                     "Location: %d\tRow/Col: %d\t"
                     "Timestamp: %d\t"
-                    "ToT: MSB: %d\tLSB: %d Total: %d (%d us)",
+                    "ToT: MSB: %d\tLSB: %d Total: %d (%f us)",
                     id, payload, location, col, timestamp, tot_msb, tot_lsb, tot_total, tot_us
                     )
 
         return pd.DataFrame(hit_pd, columns=['readout','Chip ID','payload','location', 'isCol', 'timestamp', 'tot_msb','tot_lsb','tot_total', 'tot_us', 'hittime'])
-    
-    def decode_astropix4_hits(self, list_hits: list) -> pd.DataFrame:
+
+    def decode_astropix4_hits(self, list_hits: list, printer:bool = False) -> pd.DataFrame:
         """
         Decode 8byte Frames from AstroPix 4
         :param list_hists: List with all hits
@@ -173,9 +204,26 @@ class Decode:
 
                 ts_dec1     = self.gray_to_dec((ts1 << 3) + tsfine1)
                 ts_dec2     = self.gray_to_dec((ts2 << 3) + tsfine2)
-                tot_us      = (ts_dec2-ts_dec1)/20
+
+                if ts_dec2 >= ts_dec1:
+                    tot_us      = (ts_dec2 - ts_dec1) / 20
+                else:
+                    # If TS counter wrapped -> ts_dec2 < ts_dec1
+                    tot_us      = (2**17 - ts_dec1 + ts_dec2) / 20
 
                 hit_pd.append([id, payload, row, col, ts1, tsfine1, ts2, tsfine2, tsneg1, tsneg2, tstdc1, tstdc2,
                                ts_dec1, ts_dec2, tot_us])
+
+                if printer:
+                    logger.info(
+                    "Header: ChipId: %d\tPayload: %d\t"
+                    "Row: %d\t Col: %d\t"
+                    "TS1: %d\t TS1_fine %d\t"
+                    "TS2: %d\t TS2_fine %d\t"
+                    "TS1_dec: %d\t TS2_dec %d\t"
+                    "Total ToT [us]: %f us",
+                    id, payload, row, col, ts1, tsfine1, ts2, tsfine2, ts_dec1, ts_dec2, tot_us
+                    )
+
         return pd.DataFrame(hit_pd, columns=['id', 'payload', 'row', 'col', 'ts1', 'tsfine1', 'ts2',
                                              'tsfine2', 'tsneg1', 'tsneg2', 'tstdc1', 'tstdc2', 'ts_dec1', 'ts_dec2','tot_us'])

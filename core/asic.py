@@ -382,7 +382,7 @@ class Asic(Nexysio):
         """
         asicbits = self.gen_tdac_pattern(self.gen_asic_row_vector(row), True)
 
-        self.write(asicbits)
+        self.nexys.write(asicbits)
 
     def readback_asic(self):
         asicbits = self.nexys.gen_asic_pattern(self.gen_asic_vector(), True, readback_mode = True)

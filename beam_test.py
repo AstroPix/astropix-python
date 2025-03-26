@@ -72,7 +72,8 @@ def main(args):
     astro.enable_spi() 
     astro.asic_configure()
     if args.chipVer==4:
-        astro.update_asic_tdac_row(0)
+        for row_i in range(13):
+            astro.update_asic_tdac_row(row_i)
     logger.info("Chip configured")
     astro.dump_fpga()
 
