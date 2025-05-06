@@ -159,10 +159,7 @@ def main(args):
                 readout = AstroPixReadout(readout_data, num_readouts, time.time_ns())
                 if _show:
                     print(f'{num_readouts} readouts acquired, last is {readout}.')
-                for i, hit in enumerate(readout.hits):
-                    if _show:
-                        print(f'Hit {i} -> {hit}')
-                    hit.write(output_file)
+                readout.write(output_file)
 
     # Ends program cleanly when a keyboard interupt is sent.
     except KeyboardInterrupt:
@@ -178,8 +175,8 @@ def main(args):
         astro.close_connection()
         logger.info("Program terminated successfully!")
 
-        if args.saveascsv:
-            file_path = apxdf_to_csv(data_file_path, AstroPix4Hit)
+        #if args.saveascsv:
+        #    file_path = apxdf_to_csv(data_file_path, AstroPix4Hit)
 
 
 if __name__ == "__main__":

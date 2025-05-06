@@ -411,6 +411,14 @@ class AstroPixReadout:
     HIT_HEADER_LENGTH = len(HIT_HEADER)
     HIT_TRAILER_LENGTH = len(HIT_TRAILER)
     HIT_LENGTH = HIT_HEADER_LENGTH + HIT_DATA_SIZE + HIT_TRAILER_LENGTH
+    READOUT_HEADER = bytes.fromhex('fedcba')
+    _READOUT_LENGTH_FMT = '<L'
+    _READOUT_LENGTH_SIZE = struct.calcsize(_READOUT_LENGTH_FMT)
+    _TRIGGER_ID_FMT = '<L'
+    _TRIGGER_ID_SIZE = struct.calcsize(_TRIGGER_ID_FMT)
+    _TIMESTAMP_FMT = '<Q'
+    _TIMESTAMP_SIZE = struct.calcsize(_TIMESTAMP_FMT)
+
 
     def __init__(self, data: bytearray, trigger_id: int = None, timestamp: int = None) -> None:
         """Constructor.
@@ -418,11 +426,11 @@ class AstroPixReadout:
         # Strip all the trailing padding bytes from the input bytearray object.
         self._data = data.rstrip(self.PADDING_BYTE)
         # Check that the length of the readout is a multiple of the frame length.
-        if not len(self) % self.HIT_LENGTH == 0:
-            raise RuntimeError(f'Readout length ({len(self)}) not a multiple of {self.HIT_LENGTH}')
+        #if not len(self) % self.HIT_LENGTH == 0:
+        #    raise RuntimeError(f'Readout length ({len(self)}) not a multiple of {self.HIT_LENGTH}')
         self.trigger_id = trigger_id
         self.timestamp = timestamp
-        self.hits = self.__decode()
+        #self.hits = self.__decode()
 
     def __decode(self, reverse: bool = True) -> list[AstroPix4Hit]:
         """Decode the underlying data and turn them into a list of hits.
@@ -457,10 +465,22 @@ class AstroPixReadout:
             pos += self.HIT_LENGTH
         return hits
 
-    def num_hits(self) -> int:
-        """Return the number of hits in the readout.
+    def write(self, output_file: typing.BinaryIO) -> None:
+        """Write the complete readout to a binary file.
+
+        Arguments
+        ---------
+        output_file : BinaryIO
+            A file object opened in "wb" mode.
         """
-        return len(self) // self.HIT_LENGTH
+        output_file.write(self.READOUT_HEADER)
+        # This is the number of bytes in the readout, not including the header.
+        num_bytes = len(self._data) + self._READOUT_LENGTH_SIZE + self._TRIGGER_ID_SIZE + \
+            self._TIMESTAMP_SIZE
+        output_file.write(struct.pack(self._READOUT_LENGTH_FMT, num_bytes))
+        output_file.write(self._data)
+        output_file.write(struct.pack(self._TRIGGER_ID_FMT, self.trigger_id))
+        output_file.write(struct.pack(self._TIMESTAMP_FMT, self.timestamp))
 
     def __len__(self) -> int:
         """Return the length of the underlying data in bytes.
@@ -470,7 +490,7 @@ class AstroPixReadout:
     def __str__(self) -> str:
         """String formatting.
         """
-        return f'{self.__class__.__name__}({self.num_hits()} hits, {len(self)} bytes, ' \
+        return f'{self.__class__.__name__}({len(self)} bytes, ' \
                f'trigger_id = {self.trigger_id}, timestamp = {self.timestamp} ns)'
 
 
