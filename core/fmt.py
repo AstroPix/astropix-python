@@ -24,7 +24,7 @@ import json
 import struct
 import typing
 
-from modules.setup_logger import logger
+from loguru import logger
 
 
 # Table to reverse the bit order within a byte---we pre-compute this once and
