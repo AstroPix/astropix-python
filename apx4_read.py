@@ -30,7 +30,7 @@ def setup_logger(level: str, file_path: str = None):
     .. warning::
 
         This should probably be factored out in a module that all the scripts
-        ca use, rather than coding the same thing over and over again.
+        can use, rather than coding the same thing over and over again.
 
     Arguments
     ---------
