@@ -429,7 +429,7 @@ class AstroPixReadout:
         """Constructor.
         """
         # Strip all the trailing padding bytes from the input bytearray object.
-        self._data = data.rstrip(self.PADDING_BYTE)
+        self._data = data.rstrip(self._PADDING_BYTE)
         # Set the trigger_id and timestamp class members. (Note these are not part
         # of the readout, but they are set by the host machine.)
         self.trigger_id = trigger_id
@@ -454,7 +454,7 @@ class AstroPixReadout:
             A file object opened in "wb" mode.
         """
         # Write the (fixed) readout header to the output file.
-        output_file.write(self.READOUT_HEADER)
+        output_file.write(self._HEADER)
         # Write the total size on disk, including everything but the header.
         output_file.write(struct.pack(self._LENGTH_FMT, self._write_size()))
         # Write the actual readout data.
@@ -514,7 +514,7 @@ class AstroPixReadout:
     def __str__(self) -> str:
         """String formatting.
         """
-        return f'{self.__class__.__name__}({len(self)} bytes, ' \
+        return f'{self.__class__.__name__}({len(self._data)} bytes, ' \
                f'trigger_id = {self.trigger_id}, timestamp = {self.timestamp} ns)'
 
 
