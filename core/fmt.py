@@ -21,7 +21,6 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
-from enum import Enum
 import json
 import struct
 import typing
@@ -333,16 +332,6 @@ class AstroPix4Hit(AbstractAstroPixHit):
         return AbstractAstroPixHit.gray_to_decimal((ts_coarse << 3) + ts_fine)
 
 
-class ReadoutProtocol(Enum):
-
-    """Enum class encapsulating the special bytes used in the AstroPix readout.
-    """
-
-    PADDING_BYTE = bytes.fromhex('ff')
-    IDLE_BYTE = bytes.fromhex('bc')
-    HEADER = bytes.fromhex('fedcba')
-
-
 class AbstractAstroPixReadout(ABC):
 
     """Abstract base class for a generic AstroPix readout.
@@ -368,20 +357,25 @@ class AbstractAstroPixReadout(ABC):
         The readout data from the NEXYS board.
     """
 
+    # The class representing the hit type encoded in the file, e.g., ``AstroPix4Hit``.
+    HIT_CLASS = None
+
     # The padding byte used to pad the readout.
-    #_PADDING_BYTE = bytes.fromhex('ff')
-    # The idle byte,
-    _IDLE_BYTE = bytes.fromhex('bc')
+    PADDING_BYTE = bytes.fromhex('ff')
+
+    # The idle byte, output by the chip while gathering data.
+    IDLE_BYTE = bytes.fromhex('bc')
+
     # The readout header, which is prepended to the buffer read from the NEXYS board
     # before the thing gets written to disk.
     _HEADER = bytes.fromhex('fedcba')
     _HEADER_SIZE = len(_HEADER)
+
     # Basic bookkeeping for the additional fields assigned by the host machine.
     _TRIGGER_ID_FMT = '<L'
     _TRIGGER_ID_SIZE = struct.calcsize(_TRIGGER_ID_FMT)
     _TIMESTAMP_FMT = '<Q'
     _TIMESTAMP_SIZE = struct.calcsize(_TIMESTAMP_FMT)
-    # Bookkeeping for the variable-length part of the readout.
     _LENGTH_FMT = '<L'
     _LENGTH_SIZE = struct.calcsize(_LENGTH_FMT)
 
@@ -391,42 +385,7 @@ class AbstractAstroPixReadout(ABC):
         self.trigger_id = trigger_id
         self.timestamp = timestamp
         # Strip all the trailing padding bytes from the input bytearray object.
-        self._hit_data = hit_data.rstrip(ReadoutProtocol.PADDING_BYTE.value)
-
-    @abstractmethod
-    def write(self, output_file: typing.BinaryIO) -> None:
-        """Write the complete readout to a binary file.
-
-        Arguments
-        ---------
-        output_file : BinaryIO
-            A file object opened in "wb" mode.
-        """
-
-    @classmethod
-    @abstractmethod
-    def from_file(cls, input_file: typing.BinaryIO) -> AbstractAstroPixReadout:
-        """Create a Readout object reading the underlying data from an input binary file.
-
-        By contract this should return None when there are no more data to be
-        read from the input file, so that downstream code can use the information
-        to stop iterating over the file.
-
-        Arguments
-        ---------
-        input_file : BinaryIO
-            A file object opened in "rb" mode.
-        """
-
-    @abstractmethod
-    def decode(self, reverse: bool = True) -> list[AbstractAstroPixHit]:
-        """Decode the underlying data and turn them into a list of hits.
-
-        Arguments
-        ---------
-        reverse : bool (default True)
-            If True, the bit order within each byte is reversed.
-        """
+        self._hit_data = hit_data.rstrip(self.PADDING_BYTE)
 
     @staticmethod
     def pack_and_write(output_file: typing.BinaryIO, value: typing.Any, fmt) -> None:
@@ -465,28 +424,13 @@ class AbstractAstroPixReadout(ABC):
             size = struct.calcsize(fmt)
         return struct.unpack(fmt, input_file.read(size))[0]
 
-
-class AstroPix4Readout(AbstractAstroPixReadout):
-
-    """Class describing an AstroPix 4 readout.
-    """
-
-    HIT_HEADER = bytes.fromhex('bcbc')
-    HIT_TRAILER = bytes.fromhex('bcbcbcbcbcbc')
-    HIT_DATA_SIZE = AstroPix4Hit.SIZE
-    HIT_HEADER_LENGTH = len(HIT_HEADER)
-    HIT_TRAILER_LENGTH = len(HIT_TRAILER)
-    HIT_LENGTH = HIT_HEADER_LENGTH + HIT_DATA_SIZE + HIT_TRAILER_LENGTH
-
     def write(self, output_file: typing.BinaryIO) -> None:
-        """Implementation of the write() class method.
+        """Write the complete readout to a binary file.
 
-        We do write to file, in order:
-        * the readout header magic word;
-        * the trigger identifier;
-        * the timestamp;
-        * the length of the underlying hit data;
-        * the actual hit data.
+        Arguments
+        ---------
+        output_file : BinaryIO
+            A file object opened in "wb" mode.
         """
         output_file.write(self._HEADER)
         self.pack_and_write(output_file, self.trigger_id, self._TRIGGER_ID_FMT)
@@ -495,14 +439,17 @@ class AstroPix4Readout(AbstractAstroPixReadout):
         output_file.write(self._hit_data)
 
     @classmethod
-    def from_file(cls, input_file: typing.BinaryIO) -> AstroPix4Readout:
-        """Implementation of the from_file() class method.
+    def from_file(cls, input_file: typing.BinaryIO) -> AbstractAstroPixReadout:
+        """Create a Readout object reading the underlying data from an input binary file.
 
-        This is reading all the relevant data from the input file and returns a
-        fully-fledged AstroPix4Readout object. The function returns None if there
-        are no more readouts to be read from the input file. Also, note that the
-        value of the readout header is checked at runtime, and a RuntimeError is
-        raised if it is not what we expect.
+        By contract this should return None when there are no more data to be
+        read from the input file, so that downstream code can use the information
+        to stop iterating over the file.
+
+        Arguments
+        ---------
+        input_file : BinaryIO
+            A file object opened in "rb" mode.
         """
         _header = input_file.read(cls._HEADER_SIZE)
         # If the header is empty, this means we are at the end of the file, and we
@@ -519,10 +466,10 @@ class AstroPix4Readout(AbstractAstroPixReadout):
         trigger_id = cls.read_and_unpack(input_file, cls._TRIGGER_ID_FMT, cls._TRIGGER_ID_SIZE)
         timestamp = cls.read_and_unpack(input_file, cls._TIMESTAMP_FMT, cls._TIMESTAMP_SIZE)
         data = input_file.read(cls.read_and_unpack(input_file, cls._LENGTH_FMT, cls._LENGTH_SIZE))
-        return AstroPix4Readout(trigger_id, timestamp, data)
+        return cls(trigger_id, timestamp, data)
 
-    def decode(self, reverse: bool = True) -> list[AstroPix4Hit]:
-        """Decode the underlying data and turn them into a list of hits.
+    def decode(self, reverse: bool = True) -> list[AbstractAstroPixHit]:
+        """Generic decoding function to be used by subclasses.
 
         Here is some important details about the underlying generation of idle bytes,
         verbatim from a comment by Nicolas to the github pull request
@@ -548,27 +495,19 @@ class AstroPix4Readout(AbstractAstroPixReadout):
         """
         hits = []
         pos = 0
-        # Loop over the underlying data.
         while pos < len(self._hit_data):
-            # Select the data portion corresponding to the next frame.
-            hit_data = self._hit_data[pos:pos + self.HIT_LENGTH]
-
-            # Check that the frame header and trailer are what we expect.
-            header = hit_data[:self.HIT_HEADER_LENGTH]
-            if header != self.HIT_HEADER:
-                raise RuntimeError(f'Wrong frame header {header}, expected {self.HIT_HEADER}')
-            trailer = hit_data[-self.HIT_TRAILER_LENGTH:]
-            if trailer != self.HIT_TRAILER:
-                raise RuntimeError(f'Wrong frame trailer {header}, expected {self.HIT_TRAILER}')
-
-            # Trim the hit data and get rid of the header and trailer.
-            hit_data = hit_data[self.HIT_HEADER_LENGTH:-self.HIT_TRAILER_LENGTH]
+            # Skip the idle bytes---note we need to address the input buffer with
+            # a proper slice, otherwise we get an int.
+            while self._hit_data[pos:pos + 1] == self.IDLE_BYTE:
+                pos += 1
+            hit_data = self._hit_data[pos:pos + self.HIT_CLASS.SIZE]
             # If necessary, reverse the bit order in the hit data.
             if reverse:
                 hit_data = reverse_bit_order(hit_data)
-            # Create a fully-fledged AstroPix4Hit object.
-            hits.append(AstroPix4Hit(hit_data, self.trigger_id, self.timestamp))
-            pos += self.HIT_LENGTH
+            hits.append(self.HIT_CLASS(hit_data, self.trigger_id, self.timestamp))
+            pos += self.HIT_CLASS.SIZE
+            while self._hit_data[pos:pos + 1] == self.IDLE_BYTE:
+                pos += 1
         return hits
 
     def __str__(self) -> str:
@@ -576,6 +515,14 @@ class AstroPix4Readout(AbstractAstroPixReadout):
         """
         return f'{self.__class__.__name__}({len(self._hit_data)} bytes, ' \
                f'trigger_id = {self.trigger_id}, timestamp = {self.timestamp} ns)'
+
+
+class AstroPix4Readout(AbstractAstroPixReadout):
+
+    """Class describing an AstroPix 4 readout.
+    """
+
+    HIT_CLASS = AstroPix4Hit
 
 
 class FileHeader:
