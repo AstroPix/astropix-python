@@ -21,6 +21,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
+from enum import Enum
 import json
 import struct
 import typing
@@ -332,6 +333,16 @@ class AstroPix4Hit(AbstractAstroPixHit):
         return AbstractAstroPixHit.gray_to_decimal((ts_coarse << 3) + ts_fine)
 
 
+class ReadoutProtocol(Enum):
+
+    """Enum class encapsulating the special bytes used in the AstroPix readout.
+    """
+
+    PADDING_BYTE = bytes.fromhex('ff')
+    IDLE_BYTE = bytes.fromhex('bc')
+    HEADER = bytes.fromhex('fedcba')
+
+
 class AbstractAstroPixReadout(ABC):
 
     """Abstract base class for a generic AstroPix readout.
@@ -358,7 +369,7 @@ class AbstractAstroPixReadout(ABC):
     """
 
     # The padding byte used to pad the readout.
-    _PADDING_BYTE = bytes.fromhex('ff')
+    #_PADDING_BYTE = bytes.fromhex('ff')
     # The idle byte,
     _IDLE_BYTE = bytes.fromhex('bc')
     # The readout header, which is prepended to the buffer read from the NEXYS board
@@ -380,7 +391,7 @@ class AbstractAstroPixReadout(ABC):
         self.trigger_id = trigger_id
         self.timestamp = timestamp
         # Strip all the trailing padding bytes from the input bytearray object.
-        self._hit_data = hit_data.rstrip(self._PADDING_BYTE)
+        self._hit_data = hit_data.rstrip(ReadoutProtocol.PADDING_BYTE.value)
 
     @abstractmethod
     def write(self, output_file: typing.BinaryIO) -> None:
