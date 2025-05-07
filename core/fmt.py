@@ -19,6 +19,7 @@
 
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from contextlib import contextmanager
 import json
 import struct
@@ -377,12 +378,16 @@ class AstroPix4Hit(AstroPixHitBase):
         return cls(data, trigger_id, timestamp)
 
 
-class AstroPixReadout:
+class AbstractAstroPixReadout(ABC):
 
-    """Class describing an AstroPix readout, i.e., a full readout from the NEXYS board.
+    """Abstract base class for a generic AstroPix readout.
 
-    This comes in the form of a fixed-length bytearray object that is padded at the
-    end with a fixed byte (0xff).
+    This is basically a wrapper around the bytearray object that is returned by
+    the NEXYS board, and it provides some basic functionality to write the readout
+    to a binary file.
+
+    A full readout comes in the form of a fixed-length bytearray object that is
+    padded at the end with a fixed byte (0xff).
 
     What remains when the padding bytes have been removed should be a sequence of
     frames of the form
@@ -394,14 +399,15 @@ class AstroPixReadout:
 
     Arguments
     ---------
-    data : bytearray
-        A full readout from a NEXYS board.
-
     trigger_id : int
-        A sequential id for the readout that can be propagated to child hits.
+        A sequential id for the readout, assigned by the host DAQ machine.
 
     timestamp : int
-        A timestamp (ns since the epoch, from time.time_ns()) assigned by the host machine.
+        A timestamp for the readout, assigned by the host DAQ machine, in ns since
+        the epoch, from time.time_ns().
+
+    data : bytearray
+        The readout data from the NEXYS board.
     """
 
     # The padding byte used to pad the readout.
@@ -410,41 +416,24 @@ class AstroPixReadout:
     # before the thing gets written to disk.
     _HEADER = bytes.fromhex('fedcba')
     _HEADER_SIZE = len(_HEADER)
-    # Basic bookkeeping for all the additional fields.
-    _LENGTH_FMT = '<L'
-    _LENGTH_SIZE = struct.calcsize(_LENGTH_FMT)
+    # Basic bookkeeping for the additional fields assigned by the host machine.
     _TRIGGER_ID_FMT = '<L'
     _TRIGGER_ID_SIZE = struct.calcsize(_TRIGGER_ID_FMT)
     _TIMESTAMP_FMT = '<Q'
     _TIMESTAMP_SIZE = struct.calcsize(_TIMESTAMP_FMT)
+    # Bookkeeping for the variable-length part of the readout.
+    _LENGTH_FMT = '<L'
+    _LENGTH_SIZE = struct.calcsize(_LENGTH_FMT)
 
-    #HIT_HEADER = bytes.fromhex('bcbc')
-    #HIT_TRAILER = bytes.fromhex('bcbcbcbcbcbc')
-    #HIT_DATA_SIZE = AstroPix4Hit.READ_SIZE
-    #HIT_HEADER_LENGTH = len(HIT_HEADER)
-    #HIT_TRAILER_LENGTH = len(HIT_TRAILER)
-    #HIT_LENGTH = HIT_HEADER_LENGTH + HIT_DATA_SIZE + HIT_TRAILER_LENGTH
-
-    def __init__(self, data: bytearray, trigger_id: int, timestamp: int) -> None:
+    def __init__(self, trigger_id: int, timestamp: int, hit_data: bytearray) -> None:
         """Constructor.
         """
-        # Strip all the trailing padding bytes from the input bytearray object.
-        self._data = data.rstrip(self._PADDING_BYTE)
-        # Set the trigger_id and timestamp class members. (Note these are not part
-        # of the readout, but they are set by the host machine.)
         self.trigger_id = trigger_id
         self.timestamp = timestamp
+        # Strip all the trailing padding bytes from the input bytearray object.
+        self._hit_data = hit_data.rstrip(self._PADDING_BYTE)
 
-    def _write_size(self) -> int:
-        """Return the size of the readout in bytes on disk, including the the additional
-        fields (readout length, trigger_id, and timestamps) assigned by the host
-        machine, but not the readout header.
-
-        Note that, since the size of the underlying data is not fixed, we need to
-        calculate this dynamically at runtime.
-        """
-        return self._LENGTH_SIZE + self._TRIGGER_ID_SIZE + self._TIMESTAMP_SIZE + len(self._data)
-
+    @abstractmethod
     def write(self, output_file: typing.BinaryIO) -> None:
         """Write the complete readout to a binary file.
 
@@ -453,21 +442,48 @@ class AstroPixReadout:
         output_file : BinaryIO
             A file object opened in "wb" mode.
         """
-        # Write the (fixed) readout header to the output file.
-        output_file.write(self._HEADER)
-        # Write the total size on disk, including everything but the header.
-        output_file.write(struct.pack(self._LENGTH_FMT, self._write_size()))
-        # Write the actual readout data.
-        output_file.write(self._data)
-        # Write the trigger identifier and the timestamp assigned by the host machine.
-        output_file.write(struct.pack(self._TRIGGER_ID_FMT, self.trigger_id))
-        output_file.write(struct.pack(self._TIMESTAMP_FMT, self.timestamp))
 
     @classmethod
-    def from_file(cls, input_file: typing.BinaryIO) -> AstroPixReadout:
-        """Read a readout from an input binary file.
+    @abstractmethod
+    def from_file(cls, input_file: typing.BinaryIO) -> AbstractAstroPixReadout:
+        """Create a Readout object reading the underlying data from an input binary file.
+
+        Arguments
+        ---------
+        input_file : BinaryIO
+            A file object opened in "rb" mode.
         """
-        # Read (and check) the fixed-length readout header.
+
+
+class AstroPix4Readout(AbstractAstroPixReadout):
+
+    """Class describing an AstroPix 4 readout.
+    """
+
+    #HIT_HEADER = bytes.fromhex('bcbc')
+    #HIT_TRAILER = bytes.fromhex('bcbcbcbcbcbc')
+    #HIT_DATA_SIZE = AstroPix4Hit.READ_SIZE
+    #HIT_HEADER_LENGTH = len(HIT_HEADER)
+    #HIT_TRAILER_LENGTH = len(HIT_TRAILER)
+    #HIT_LENGTH = HIT_HEADER_LENGTH + HIT_DATA_SIZE + HIT_TRAILER_LENGTH
+
+    def write(self, output_file: typing.BinaryIO) -> None:
+        """
+        """
+        # Write the (fixed) readout header to the output file.
+        output_file.write(self._HEADER)
+        # Write the trigger id and the timestamp assigned by the host machine.
+        output_file.write(struct.pack(self._TRIGGER_ID_FMT, self.trigger_id))
+        output_file.write(struct.pack(self._TIMESTAMP_FMT, self.timestamp))
+        # Write the size on disk, in bytes, for the variable-size part of the event.
+        output_file.write(struct.pack(self._LENGTH_FMT, len(self._hit_data)))
+        # Write the actual readout data.
+        output_file.write(self._hit_data)
+
+    @classmethod
+    def from_file(cls, input_file: typing.BinaryIO) -> AstroPix4Readout:
+        """
+        """
         _header = input_file.read(cls._HEADER_SIZE)
         if len(_header) == 0:
             return None
