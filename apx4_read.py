@@ -175,8 +175,8 @@ def main(args):
         astro.close_connection()
         logger.info("Program terminated successfully!")
 
-        #if args.saveascsv:
-        #    file_path = apxdf_to_csv(data_file_path, AstroPix4Hit)
+        if args.saveascsv:
+            file_path = apxdf_to_csv(data_file_path, AstroPix4Hit)
 
 
 if __name__ == "__main__":
