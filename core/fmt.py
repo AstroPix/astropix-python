@@ -49,7 +49,7 @@ class BitPattern(str):
     caring about the byte boundaries.
 
     This is not very memory-efficient and probably not blazingly fast either, but
-    it allows to reason about the incoming bits in a straighforward fashion, and
+    it allows to reason about the incoming bits in a straightforward fashion, and
     I doubt we will ever need to optimize this. (If that is the case, there are
     probably ways, using either numpy or the bitarray third-party package.)
 
@@ -70,26 +70,15 @@ class BitPattern(str):
         return int(super().__getitem__(index), 2)
 
 
-class AstroPixHitBase:
+class AbstractAstroPixHit(ABC):
 
-    """Base class for a generic AstroPix hit.
+    """Abstract base class for a generic AstroPix hit.
 
     While the original decode routine was working in terms of the various bytes
     in the binary representation of the hit, since there seem to be no meaning
     altogether in the byte boundaries (at least for AstroPix 4), and the various
-    fields are arbitrary subsets of a multi-byte word, it seemed more naturale to
+    fields are arbitrary subsets of a multi-byte word, it seemed more natural to
     describe the hit as a sequence of fields, each one with its own length in bits.
-
-    .. warning::
-
-        In order to support the addition of a sequential trigger identitier and
-        a timestamp (both assigned by the DAQ host machine) in the AstroPix4 setup,
-        we make an explicit distinction between the size of the hit as enclosed in
-        a readout from the NEXYS board (``READ_SIZE``), and that of a hit that
-        gets written in an output binary file (``WRITE_SIZE``). Subclasses are
-        reponsible for setting sensible values for the ``READ_SIZE`` and ``WRITE_SIZE``,
-        as well as for overloading the ``write()`` and ``from_file_data()`` methods
-        to handle the additional fields that need to be written and/or read.
 
     Arguments
     ---------
@@ -97,10 +86,9 @@ class AstroPixHitBase:
         The portion of a full AstroPix readout representing a single hit.
     """
 
-    READ_SIZE = None
-    WRITE_SIZE = None
-    FIELD_DICT = None
+    _LAYOUT = None
     _FIELD_NAMES = None
+    SIZE = None
 
     def __init__(self, data: bytearray) -> None:
         """Constructor.
@@ -112,44 +100,23 @@ class AstroPixHitBase:
         # to set all the class members.
         bit_pattern = BitPattern(self._data)
         pos = 0
-        for name, width in self.FIELD_DICT.items():
+        for name, width in self._LAYOUT.items():
             self.__setattr__(name, bit_pattern[pos:pos + width])
             pos += width
 
-    def write(self, output_file: typing.BinaryIO) -> None:
-        """Write the binary data to a file.
-
-        Subclasses can overload this method when it is necessary to add more stuff
-        (e.g., a trigger identifier, or a timestamp) to the binary blob coming
-        from the NEXYS board.
+    @staticmethod
+    def calculate_size(layout: dict[str, int]) -> int:
+        """Calculate the size of a hit in bytes.
 
         Arguments
         ---------
-        output_file : BinaryIO
-            A file object opened in "wb" mode.
+        layout : dict
+            The layout of the hit, as a dictionary of field names and their
+            respective widths in bits.
         """
-        output_file.write(self._data)
-
-    @classmethod
-    def from_file_data(cls, data: bytes) -> 'AstroPixHitBase':
-        """Read a hit from an input binary file.
-
-        By default this is basically calling the class constructor, but when
-        ``READ_SIZE`` and ``WRITE_SIZE`` are different because ``write()`` is doing
-        something non-trivial, then this method should be overloaded to do something
-        sensible with the additional bytes.
-
-        Arguments
-        ---------
-        data : bytes
-            The block of binary data (of size ``cls.WRITE_SIZE``) from the binary file.
-        """
-        return cls(data)
-
-    def __eq__(self, other: 'AstroPixHitBase') -> bool:
-        """Comparison operator---this is handy in the unit tests.
-        """
-        return self._data == other._data
+        size, reminder = divmod(sum(layout.values()), 8)
+        print(size, reminder)
+        return (sum(layout.values()) + 7) // 8
 
     @staticmethod
     def gray_to_decimal(gray: int) -> int:
@@ -237,13 +204,18 @@ class AstroPixHitBase:
             fields = self._FIELD_NAMES
         return self._text(fields, fmts=None, separator=',')
 
+    def __eq__(self, other: 'AbstractAstroPixHit') -> bool:
+        """Comparison operator---this is handy in the unit tests.
+        """
+        return self._data == other._data
+
     def __str__(self) -> str:
         """String formatting.
         """
         return self._repr(self._FIELD_NAMES)
 
 
-class AstroPix3Hit(AstroPixHitBase):
+class AstroPix3Hit(AbstractAstroPixHit):
 
     """Class describing an AstroPix3 hit.
 
@@ -252,9 +224,7 @@ class AstroPix3Hit(AstroPixHitBase):
         This is copied from decode.py and totally untested.
     """
 
-    READ_SIZE = 5
-    WRITE_SIZE = READ_SIZE
-    FIELD_DICT = {
+    _LAYOUT = {
         'chip_id': 5,
         'payload': 3,
         'column': 1,
@@ -265,7 +235,8 @@ class AstroPix3Hit(AstroPixHitBase):
         'tot_msb': 4,
         'tot_lsb': 8
     }
-    _FIELD_NAMES = tuple(FIELD_DICT.keys()) + ('tot', 'tot_us')
+    _FIELD_NAMES = tuple(_LAYOUT.keys()) + ('tot', 'tot_us')
+    SIZE = 5
     CLOCK_CYCLES_PER_US = 200.
 
     def __init__(self, data: bytearray) -> None:
@@ -277,18 +248,12 @@ class AstroPix3Hit(AstroPixHitBase):
         self.tot_us = self.tot / self.CLOCK_CYCLES_PER_US
 
 
-class AstroPix4Hit(AstroPixHitBase):
+class AstroPix4Hit(AbstractAstroPixHit):
 
     """Class describing an AstroPix4 hit.
     """
 
-    READ_SIZE = 8
-    _TRIGGER_ID_FMT = '<L'
-    _TRIGGER_ID_SIZE = struct.calcsize(_TRIGGER_ID_FMT)
-    _TIMESTAMP_FMT = '<Q'
-    _TIMESTAMP_SIZE = struct.calcsize(_TIMESTAMP_FMT)
-    WRITE_SIZE = READ_SIZE + _TRIGGER_ID_SIZE + _TIMESTAMP_SIZE
-    FIELD_DICT = {
+    _LAYOUT = {
         'chip_id': 5,
         'payload': 3,
         'row': 5,
@@ -302,8 +267,8 @@ class AstroPix4Hit(AstroPixHitBase):
         'ts_fine2': 3,
         'ts_tdc2': 5
     }
-
-    _FIELD_NAMES = tuple(FIELD_DICT.keys()) + ('ts_dec1', 'ts_dec2', 'tot_us', 'trigger_id', 'timestamp')
+    _FIELD_NAMES = tuple(_LAYOUT.keys()) + ('ts_dec1', 'ts_dec2', 'tot_us', 'trigger_id', 'timestamp')
+    SIZE = 8
     CLOCK_CYCLES_PER_US = 20.
     CLOCK_ROLLOVER = 2**17
 
@@ -340,42 +305,7 @@ class AstroPix4Hit(AstroPixHitBase):
         int
             The actual decimal value of the timestamp counter, in clock cycles.
         """
-        return AstroPixHitBase.gray_to_decimal((ts_coarse << 3) + ts_fine)
-
-    def write(self, output_file: typing.BinaryIO) -> None:
-        """Overloaded method.
-
-        This is the place where, in addition to the 8 bytes of binary data from the
-        NEXYS board, we do write the trigger identifier and the timestamp assigned
-        by the DAQ host machine.
-
-        Arguments
-        ---------
-        output_file : BinaryIO
-            A file object opened in "wb" mode.
-        """
-        output_file.write(self._data)
-        output_file.write(struct.pack(self._TRIGGER_ID_FMT, self.trigger_id))
-        output_file.write(struct.pack(self._TIMESTAMP_FMT, self.timestamp))
-
-    @classmethod
-    def from_file_data(cls, data: bytes) -> 'AstroPix4Hit':
-        """Overloaded method.
-
-        This is where we unpack the trigger identifier and the timestamp assigned
-        by the DAQ host machine before we initialize the hit object.
-
-        Arguments
-        ---------
-        data : bytes
-            The block of binary data from the binary file.
-        """
-        pos = cls.READ_SIZE
-        trigger_id = struct.unpack(cls._TRIGGER_ID_FMT, data[pos:pos + cls._TRIGGER_ID_SIZE])
-        pos += cls._TRIGGER_ID_SIZE
-        timestamp = struct.unpack(cls._TIMESTAMP_FMT, data[pos:pos + cls._TIMESTAMP_SIZE])
-        data = data[:cls.READ_SIZE]
-        return cls(data, trigger_id, timestamp)
+        return AbstractAstroPixHit.gray_to_decimal((ts_coarse << 3) + ts_fine)
 
 
 class AbstractAstroPixReadout(ABC):
@@ -503,7 +433,7 @@ class AstroPix4Readout(AbstractAstroPixReadout):
 
     HIT_HEADER = bytes.fromhex('bcbc')
     HIT_TRAILER = bytes.fromhex('bcbcbcbcbcbc')
-    HIT_DATA_SIZE = AstroPix4Hit.READ_SIZE
+    HIT_DATA_SIZE = AstroPix4Hit.SIZE
     HIT_HEADER_LENGTH = len(HIT_HEADER)
     HIT_TRAILER_LENGTH = len(HIT_TRAILER)
     HIT_LENGTH = HIT_HEADER_LENGTH + HIT_DATA_SIZE + HIT_TRAILER_LENGTH
