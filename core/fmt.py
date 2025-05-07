@@ -530,7 +530,7 @@ class AstroPix4Readout(AbstractAstroPixReadout):
     def __str__(self) -> str:
         """String formatting.
         """
-        return f'{self.__class__.__name__}({len(self._data)} bytes, ' \
+        return f'{self.__class__.__name__}({len(self._hit_data)} bytes, ' \
                f'trigger_id = {self.trigger_id}, timestamp = {self.timestamp} ns)'
 
 

@@ -20,7 +20,7 @@ import time
 import logging
 import argparse
 
-from core.fmt import AstroPixReadout, FileHeader, AstroPixBinaryFile, AstroPix4Hit, apxdf_to_csv
+from core.fmt import AstroPix4Readout, FileHeader, AstroPixBinaryFile, AstroPix4Hit, apxdf_to_csv
 
 
 
@@ -156,7 +156,7 @@ def main(args):
             if readout_data:
                 num_readouts += 1
                 _show = num_readouts % args.prescale == 0
-                readout = AstroPixReadout(readout_data, num_readouts, time.time_ns())
+                readout = AstroPix4Readout(num_readouts, time.time_ns(), readout_data)
                 if _show:
                     print(f'{num_readouts} readouts acquired, last is {readout}.')
                 readout.write(output_file)
