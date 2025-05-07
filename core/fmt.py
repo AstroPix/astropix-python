@@ -342,7 +342,8 @@ class AbstractAstroPixReadout(ABC):
 
     A full readout comes in the form of a fixed-length bytearray object that is
     padded at the end with a padding byte (0xff). The hit data are surrounded by a
-    (generally variable) number of idle bytes (0xbc).
+    (generally variable) number of idle bytes (0xbc), see the documentation of the
+    decode() class method.
 
     Arguments
     ---------
@@ -357,7 +358,7 @@ class AbstractAstroPixReadout(ABC):
         The readout data from the NEXYS board.
     """
 
-    # The class representing the hit type encoded in the file, e.g., ``AstroPix4Hit``.
+    # The class representing the hit type encoded in the readout, e.g., ``AstroPix4Hit``.
     HIT_CLASS = None
 
     # The padding byte used to pad the readout.
@@ -373,11 +374,8 @@ class AbstractAstroPixReadout(ABC):
 
     # Basic bookkeeping for the additional fields assigned by the host machine.
     _TRIGGER_ID_FMT = '<L'
-    _TRIGGER_ID_SIZE = struct.calcsize(_TRIGGER_ID_FMT)
     _TIMESTAMP_FMT = '<Q'
-    _TIMESTAMP_SIZE = struct.calcsize(_TIMESTAMP_FMT)
     _LENGTH_FMT = '<L'
-    _LENGTH_SIZE = struct.calcsize(_LENGTH_FMT)
 
     def __init__(self, trigger_id: int, timestamp: int, hit_data: bytearray) -> None:
         """Constructor.
@@ -388,24 +386,7 @@ class AbstractAstroPixReadout(ABC):
         self._hit_data = hit_data.rstrip(self.PADDING_BYTE)
 
     @staticmethod
-    def pack_and_write(output_file: typing.BinaryIO, value: typing.Any, fmt) -> None:
-        """Convenience function to pack and write a fixed-size field to an output file.
-
-        Arguments
-        ---------
-        output_file : BinaryIO
-            A file object opened in "wb" mode.
-
-        value : any
-            The value to be written.
-
-        fmt : str
-            The format string for the field to be written.
-        """
-        output_file.write(struct.pack(fmt, value))
-
-    @staticmethod
-    def read_and_unpack(input_file: typing.BinaryIO, fmt: str, size: int = None) -> typing.Any:
+    def read_and_unpack(input_file: typing.BinaryIO, fmt: str) -> typing.Any:
         """Convenience function to read and unpack a fixed-size field from an input file.
 
         Arguments
@@ -415,14 +396,8 @@ class AbstractAstroPixReadout(ABC):
 
         fmt : str
             The format string for the field to be read.
-
-        size : int, optional
-            The size of the field to be read. If not provided, it is calculated
-            from the format string.
         """
-        if size is None:
-            size = struct.calcsize(fmt)
-        return struct.unpack(fmt, input_file.read(size))[0]
+        return struct.unpack(fmt, input_file.read(struct.calcsize(fmt)))[0]
 
     def write(self, output_file: typing.BinaryIO) -> None:
         """Write the complete readout to a binary file.
@@ -433,9 +408,9 @@ class AbstractAstroPixReadout(ABC):
             A file object opened in "wb" mode.
         """
         output_file.write(self._HEADER)
-        self.pack_and_write(output_file, self.trigger_id, self._TRIGGER_ID_FMT)
-        self.pack_and_write(output_file, self.timestamp, self._TIMESTAMP_FMT)
-        self.pack_and_write(output_file, len(self._hit_data), self._LENGTH_FMT)
+        output_file.write(struct.pack(self._TRIGGER_ID_FMT, self.trigger_id))
+        output_file.write(struct.pack(self._TIMESTAMP_FMT, self.timestamp))
+        output_file.write(struct.pack(self._LENGTH_FMT, len(self._hit_data)))
         output_file.write(self._hit_data)
 
     @classmethod
@@ -463,9 +438,9 @@ class AbstractAstroPixReadout(ABC):
         if _header != cls._HEADER:
             raise RuntimeError(f'Invalid readout header ({_header}), expected {cls._HEADER}')
         # Go ahead, read all the fields, and create the AstroPix4Readout object.
-        trigger_id = cls.read_and_unpack(input_file, cls._TRIGGER_ID_FMT, cls._TRIGGER_ID_SIZE)
-        timestamp = cls.read_and_unpack(input_file, cls._TIMESTAMP_FMT, cls._TIMESTAMP_SIZE)
-        data = input_file.read(cls.read_and_unpack(input_file, cls._LENGTH_FMT, cls._LENGTH_SIZE))
+        trigger_id = cls.read_and_unpack(input_file, cls._TRIGGER_ID_FMT)
+        timestamp = cls.read_and_unpack(input_file, cls._TIMESTAMP_FMT)
+        data = input_file.read(cls.read_and_unpack(input_file, cls._LENGTH_FMT))
         return cls(trigger_id, timestamp, data)
 
     def decode(self, reverse: bool = True) -> list[AbstractAstroPixHit]:
