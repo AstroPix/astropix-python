@@ -20,7 +20,8 @@ import time
 import logging
 import argparse
 
-from core.fmt import AstroPix4Readout, FileHeader, AstroPixBinaryFile, AstroPix4Hit, apxdf_to_csv
+from astropix_analysis.fmt import AstroPix4Hit, AstroPix4Readout
+from astropix_analysis.fileio import FileHeader, apx_to_csv
 
 
 
@@ -143,29 +144,29 @@ def main(args):
 
     # Start the event loop.
     # By enclosing the main loop in try/except we are able to capture keyboard interupts cleanly
-    num_readouts = 0
+    readout_id = 0
     try:
         while 1:
             # Check the stop conditions.
             if stop_time is not None and time.time() >= stop_time:
                 break
-            if max_num_readouts is not None and num_readouts >= max_num_readouts:
+            if max_num_readouts is not None and readout_id >= max_num_readouts:
                 break
             # Go ahead and readout data.
             readout_data = astro.get_readout()
             if readout_data:
-                num_readouts += 1
-                _show = num_readouts % args.prescale == 0
-                readout = AstroPix4Readout(num_readouts, time.time_ns(), readout_data)
-                if _show:
-                    print(f'{num_readouts} readouts acquired, last is {readout}.')
+                readout = AstroPix4Readout(readout_data, readout_id)
+                readout_id += 1
+                if readout_id % args.prescale == 0:
+                    print(f'{readout_id} readouts acquired, last is {readout}.')
                 readout.write(output_file)
+
 
     # Ends program cleanly when a keyboard interupt is sent.
     except KeyboardInterrupt:
         logger.info('Keyboard interupt, exiting...')
     finally:
-        logger.info(f'Data acquisition interrupted after {num_readouts} readouts.')
+        logger.info(f'Data acquisition interrupted after {readout_id} readouts.')
         output_file.close()
         logger.info('Output file closed.')
 
@@ -176,7 +177,7 @@ def main(args):
         logger.info("Program terminated successfully!")
 
         if args.saveascsv:
-            file_path = apxdf_to_csv(data_file_path, AstroPix4Hit)
+            file_path = apx_to_csv(data_file_path, AstroPix4Readout)
 
 
 if __name__ == "__main__":
