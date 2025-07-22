@@ -20,6 +20,18 @@ def change_all_TuneDACs(file,TuneDAC):
     with open(file,'w') as stream:
           stream.writelines(data)
 
+def change_VPDAC(file,VPDAC):
+    with open(file, 'r') as stream:
+        data=stream.readlines()
+
+    for i,line in enumerate(data):
+         if 'vpdac' in line:
+            line=line[:36]+str(VPDAC)+']\n'
+            data[i]=line
+
+    with open(file,'w') as stream:
+          stream.writelines(data)
+
 
 parser = argparse.ArgumentParser(description='Astropix Driver Code')
 parser.add_argument('-n', '--name', default='', required=False,
@@ -109,25 +121,31 @@ logger = logging.getLogger(__name__)
 #If using v3, use injection created with integrated DACs on chip
 onchipBool = True if args.chipVer > 2 else False
 
-threshold_array=np.arange(50,301,10)
+threshold_array=np.arange(40,241,5 ) ###### can change step here
 
-
-for TuneDAC in [0,1,2,3,4,5,6,7]:
-    change_all_TuneDACs(f'config/{args.yaml}.yml', TuneDAC)
-    time.sleep(1)
-    ### outdir is currently specific to the machine used to run at goddard, change before running
-    args.outdir=f'test_gs/New_Cadmium109_Threshold_Scan/TuneDAC_{TuneDAC}'
-    for threshold in threshold_array:
-            args.name=f'threshold_{threshold}mV'
-            print(f'{args.name}')
-            args.threshold=float(threshold)
-            success_bool=False
-            # beam_test.main(args)
-            while success_bool==False:
-                    try:
-                        beam_test.main(args)
-                        success_bool=True
-                    except:
-                        print(f'An error occured on threshold {threshold}mV')
-                        success_bool=False
-                        time.sleep(0.5)
+for VPDAC in [10,20,30,40]:
+# for VPDAC in [10]:
+    change_VPDAC(f'config/{args.yaml}.yml',VPDAC)
+    for TuneDAC in [0,1,2,3,4,5,6,7]:
+        change_all_TuneDACs(f'config/{args.yaml}.yml', TuneDAC)
+        time.sleep(1)
+        for col in [0,1,2,3,4,5,6,7,8,9,10,11,12]:
+        # for col in [9]:
+            args.inject=[1,col]
+            ### outdir is currently specific to the machine used to run at goddard, change before running
+            args.outdir=f'E:/data/VPDAC_Testing_With_Grant/scan4/VPDAC_{VPDAC}/TuneDAC_{TuneDAC}/Col_{col}'
+            os.makedirs(args.outdir)
+            for threshold in threshold_array:
+                    args.name=f'threshold_{threshold}mV'
+                    print(f'{args.name}')
+                    args.threshold=float(threshold)
+                    success_bool=False
+                    # beam_test.main(args)
+                    while success_bool==False:
+                            try:
+                                beam_test.main(args)
+                                success_bool=True
+                            except:
+                                print(f'An error occured on threshold {threshold}mV')
+                                success_bool=False
+                                time.sleep(1)
