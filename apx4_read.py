@@ -20,8 +20,8 @@ import time
 import logging
 import argparse
 
-from astropix_analysis.fmt import AstroPix4Hit, AstroPix4Readout
-from astropix_analysis.fileio import FileHeader, apx_to_csv
+from astropix_analysis.fmt import AstroPix4Hit, AstroPix4Readout, readout_uid
+from astropix_analysis.fileio import FileHeader#, apx_to_csv
 
 
 
@@ -133,7 +133,7 @@ def main(args):
     header_data = {}
     header_data['configuration'] = astro.get_header_data()
     header_data['args'] = args.__dict__
-    header = FileHeader(header_data)
+    header = FileHeader(readout_uid(AstroPix4Readout), header_data)
 
     # Open the output file and write the header.
     data_file_name = f'{start_datetime}_data.apx'
@@ -176,8 +176,8 @@ def main(args):
         astro.close_connection()
         logger.info("Program terminated successfully!")
 
-        if args.saveascsv:
-            file_path = apx_to_csv(data_file_path, AstroPix4Readout)
+        #if args.saveascsv:
+        #    file_path = apx_to_csv(data_file_path, AstroPix4Readout)
 
 
 if __name__ == "__main__":
