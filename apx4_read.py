@@ -20,7 +20,7 @@ import time
 import logging
 import argparse
 
-from astropix_analysis.fmt import AstroPix4Hit, AstroPix4Readout, readout_uid
+from astropix_analysis.fmt import AstroPix4Hit, AstroPix4Readout
 from astropix_analysis.fileio import FileHeader#, apx_to_csv
 
 
@@ -52,6 +52,7 @@ def setup_logger(level: str, file_path: str = None):
     formatter = logging.Formatter('%(asctime)s:%(msecs)d.%(name)s.%(levelname)s:%(message)s')
     stream_handler = logging.StreamHandler()
     stream_handler.setFormatter(formatter)
+    logging.getLogger().handlers.clear()
     logging.getLogger().addHandler(stream_handler)
     if file_path is not None:
         file_handler = logging.FileHandler(file_path)
@@ -69,6 +70,7 @@ def main(args):
     # A couple of hard-coded parameters---this is currently only supporting AstroPix v4!
     chip_version = 4
     ci_on_chip = True
+
 
     # Latch the start date and time---this will be used for naming the output products.
     start_datetime = time.strftime("%Y%m%d_%H%M%S")
@@ -97,7 +99,8 @@ def main(args):
     astro.enable_spi()
     astro.asic_configure()
     if chip_version == 4:
-        astro.update_asic_tdac_row(0)
+        for row_i in range(13):
+            astro.update_asic_tdac_row(row_i)
     logger.info('Chip fully configured!')
 
     # What is this doing?
@@ -133,7 +136,7 @@ def main(args):
     header_data = {}
     header_data['configuration'] = astro.get_header_data()
     header_data['args'] = args.__dict__
-    header = FileHeader(readout_uid(AstroPix4Readout), header_data)
+    header = FileHeader(AstroPix4Readout, header_data)
 
     # Open the output file and write the header.
     data_file_name = f'{start_datetime}_data.apx'
